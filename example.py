@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Examples code for using `nock`
+Examples code for using `pynock`
 """
 
 from icecream import ic  # type: ignore
 import pyarrow.parquet as pq  # type: ignore
 import typer
 
-from nock import Partition
+from pynock import Partition
 
 APP = typer.Typer()
 

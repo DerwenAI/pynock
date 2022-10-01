@@ -1,6 +1,6 @@
-# nock
+# pynock
 
-This library `nock` provides Examples for working with low-level
+This library `pynock` provides Examples for working with low-level
 Parquet read/write efficiently in Python. The intent is to serialize
 graphs which can align data representations for multiple areas of
 popular graph technologies:
@@ -13,7 +13,7 @@ popular graph technologies:
 This approach also supports distributed partitions based on
 Arrow/Parquet which can scale to very large (+1 T node) graphs.
 
-Note that the `nock` library does not provide any support for graph
+Note that the `pynock` library does not provide any support for graph
 computation or querying, merely for manipulating and validating
 serialization formats.
 
@@ -61,7 +61,7 @@ release process:
 ```
 python3 -m pip install -e .
 python3 -m pytest tests/
-python3 -m pip uninstall nock
+python3 -m pip uninstall pynock
 ```
 
 
@@ -72,8 +72,10 @@ A `nock` is the English word for the end of an arrow opposite its point.
 
 ## Background
 
-For more details about using Arrow/Parquet:b
+For more details about using Arrow/Parquet:
+
+["Apache Arrow homepage"](https://arrow.apache.org/)
 
 ["Apache Arrow: Read DataFrame With Zero Memory"](https://towardsdatascience.com/apache-arrow-read-dataframe-with-zero-memory-69634092b1a)  
 Dejan Simic  
-_Towards Data Science__ (2020-06-25)
+_Towards Data Science_ (2020-06-25)
