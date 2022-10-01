@@ -1,0 +1,4 @@
+# added by check-manifest
+include *.py
+recursive-include dat *.parq
+recursive-include tests *.py

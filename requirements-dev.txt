@@ -1,0 +1,7 @@
+codespell >= 2.1
+mypy >= 0.931
+pre-commit >= 2.13
+pylint >= 2.12
+pytest >= 7.1.2
+twine
+wheel
