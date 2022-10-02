@@ -20,6 +20,7 @@ import pandas as pd
 import pyarrow as pa  # type: ignore  # pylint: disable=E0401
 import pyarrow.lib  # type: ignore  # pylint: disable=E0401
 import pyarrow.parquet as pq  # type: ignore  # pylint: disable=E0401
+import rdflib
 
 
 ######################################################################
@@ -452,3 +453,32 @@ Save a partition to a CSV file.
         """
         df = pd.DataFrame([row for row in self.iter_gen_rows()])
         df.to_csv(save_csv.as_posix(), index=False)
+
+
+    def save_file_rdf (
+        self,
+        save_rdf: cloudpathlib.AnyPath,
+        rdf_format: str,
+        *,
+        debug: bool = False,
+        ) -> None:
+        """
+Save a partition to an RDF file.
+        """
+        kg = kglab.KnowledgeGraph()
+        subj = None
+
+        for row in self.iter_gen_rows():
+            if row["is_rdf"]:
+
+                if row["edge_id"] < 0:
+                    subj = rdflib.term.URIRef(row["src_name"])
+                else:
+                    pred = rdflib.term.URIRef(row["rel_name"])
+                    objt = rdflib.term.URIRef(row["dst_name"])
+                    kg.add(subj, pred, objt)
+
+                    if debug:
+                        ic(subj, pred, objt)
+
+        kg.save_rdf(save_rdf, format=rdf_format)

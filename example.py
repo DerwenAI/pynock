@@ -20,6 +20,8 @@ def cli_load_parq (
     *,
     load_parq: str = typer.Option(..., "--file", "-f", help="input Parquet file"),
     save_csv: str = typer.Option(None, "--save-csv", help="output as CSV"),
+    save_rdf: str = typer.Option(None, "--save-rdf", help="output as RDF"),
+    rdf_format: str = typer.Option("ttl", "--format", help="RDF format: ttl, rdf, jsonld, etc."),
     debug: bool = False,
     ) -> None:
     """
@@ -46,12 +48,17 @@ saving to different formats.
     if save_csv is not None:
         part.save_file_csv(cloudpathlib.AnyPath(save_csv))
 
+    if save_rdf is not None:
+        part.save_file_rdf(cloudpathlib.AnyPath(save_rdf), rdf_format)
+
 
 @APP.command("load-csv")
 def cli_load_csv (
     *,
     load_csv: str = typer.Option(..., "--file", "-f", help="input CSV file"),
     save_parq: str = typer.Option(None, "--save-parq", help="output as Parquet"),
+    save_rdf: str = typer.Option(None, "--save-rdf", help="output as RDF"),
+    rdf_format: str = typer.Option("ttl", "--format", help="RDF format: ttl, rdf, jsonld, etc."),
     debug: bool = False,
     ) -> None:
     """
@@ -70,6 +77,9 @@ saving to different formats.
     # next, handle the output options
     if save_parq is not None:
         part.save_file_parquet(cloudpathlib.AnyPath(save_parq))
+
+    if save_rdf is not None:
+        part.save_file_rdf(cloudpathlib.AnyPath(save_rdf), rdf_format)
 
 
 @APP.command("load-rdf")
