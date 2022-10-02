@@ -8,12 +8,14 @@ efficiently in Python.
 
 import csv
 import json
+import sys
 import typing
 
 from icecream import ic  # type: ignore  # pylint: disable=E0401
 from pydantic import BaseModel  # pylint: disable=E0401,E0611
 from rich.progress import track  # pylint: disable=E0401
 import cloudpathlib
+import kglab
 import pandas as pd
 import pyarrow as pa  # type: ignore  # pylint: disable=E0401
 import pyarrow.lib  # type: ignore  # pylint: disable=E0401
@@ -70,6 +72,8 @@ class Partition (BaseModel):  # pylint: disable=R0903
     """
 Representing a partition in the graph.
     """
+    PROPS_NULL: typing.ClassVar[str] = "null"
+
     part_id: int = NOT_FOUND
     next_node: int = 0
     nodes: typing.Dict[int, Node] = {}
@@ -77,18 +81,35 @@ Representing a partition in the graph.
     edge_rels: typing.List[str] = [""]
 
 
-    def create_node (
+    def lookup_node (
+        self,
+        node_name: str,
+        *,
+        debug: bool = False,  # pylint: disable=W0613
+        ) -> typing.Optional[Node]:
+        """
+Lookup a node, return None if not found.
+        """
+        if node_name in self.node_names:
+            return self.nodes[self.node_names[node_name]]
+
+        return None
+
+
+    def create_node_name (
         self,
         node_name: str,
         *,
         debug: bool = False,  # pylint: disable=W0613
         ) -> int:
         """
-Create a node, looking up first to avoid duplicates.
+Create a name for a new node in the namespace, looking up first to avoid duplicates.
         """
         node_id: int = NOT_FOUND
 
-        if node_name in self.node_names:
+        if node_name in [None, ""]:
+            raise ValueError(f"node name cannot be null |{ node_name }|")
+        elif node_name in self.node_names:
             node_id = self.node_names[node_name]
         else:
             node_id = self.next_node
@@ -110,7 +131,7 @@ Load property pairs from a JSON string.
         """
         prop_map: PropMap = {}
 
-        if props not in ("null", ""):
+        if props not in (cls.PROPS_NULL, ""):
             prop_map = json.loads(props)
 
         return prop_map
@@ -126,7 +147,7 @@ Load property pairs from a JSON string.
         """
 Save property pairs to a JSON string.
         """
-        props: str = "null"
+        props: str = cls.PROPS_NULL
 
         if len(prop_map) > 0:
             props = json.dumps(prop_map)
@@ -145,6 +166,7 @@ Save property pairs to a JSON string.
         """
 Populate a Node object from the given Parquet row data.
         """
+        # create a src node
         node: Node = Node(
             name = row["src_name"],
             truth = row["truth"],
@@ -154,8 +176,9 @@ Populate a Node object from the given Parquet row data.
             prop_map = self.load_props(row["props"]),
         )
 
+        node.node_id = self.create_node_name(node.name)
+
         # add this node to the global list
-        node.node_id = self.create_node(node.name)
         self.nodes[node.node_id] = node
 
         return node
@@ -187,10 +210,25 @@ Lookup the integer index for the named edge relation.
         """
 Populate an Edge object from the given Parquet row data.
         """
+        # first, lookup the dst node and create if needed
+        dst_name: str = row["dst_name"]
+        dst_node: typing.Optional[Node] = self.lookup_node(dst_name)
+
+        if dst_node is None:
+            dst_node = Node(
+                node_id = self.create_node_name(dst_name),
+                name = dst_name,
+                truth = row["truth"],
+                is_rdf = row["is_rdf"],
+            )
+
+            self.nodes[dst_node.node_id] = dst_node
+
+        # create the edge
         edge: Edge = Edge(
             rel = self.get_edge_rel(row["rel_name"], create=True),
             truth = row["truth"],
-            node_id = self.create_node(row["dst_name"]),
+            node_id = dst_node.node_id,
             prop_map = self.load_props(row["props"]),
         )
 
@@ -265,6 +303,62 @@ Iterate through the rows in a CSV file.
                 row_num += 1
 
 
+    def iter_load_rdf (
+        self,
+        rdf_path: cloudpathlib.AnyPath,
+        rdf_format: str,
+        *,
+        debug: bool = False,
+        ) -> typing.Iterable[typing.Tuple[int, GraphRow]]:
+        """
+Iterate through the rows implied by a RDF file.
+        """
+        row_num: int = 0
+
+        kg = kglab.KnowledgeGraph()
+        kg.load_rdf(rdf_path, format=rdf_format)
+
+        for subj, pred, objt in kg.rdf_graph():
+            if debug:
+                ic(subj, pred, objt)
+
+            # node representation for a triple
+            row: GraphRow = {}
+            row["src_name"] = str(subj)
+            row["truth"] = 1.0
+            row["edge_id"] = NOT_FOUND
+            row["rel_name"] = None
+            row["dst_name"] = None
+            row["is_rdf"] = True
+            row["shadow"] = Node.BASED_LOCAL
+            row["labels"] = ""
+            row["props"] = self.PROPS_NULL
+
+            if debug:
+                ic("node", subj, row_num, row)
+
+            yield row_num, row
+            row_num += 1
+
+            # edge representation for a triple
+            row = {}
+            row["src_name"] = str(subj)
+            row["truth"] = 1.0
+            row["edge_id"] = 1
+            row["rel_name"] = str(pred)
+            row["dst_name"] = str(objt)
+            row["is_rdf"] = True
+            row["shadow"] = Node.BASED_LOCAL
+            row["labels"] = ""
+            row["props"] = self.PROPS_NULL
+
+            if debug:
+                ic("edge", objt, row_num, row)
+
+            yield row_num, row
+            row_num += 1
+
+
     def parse_rows (
         self,
         iter_load: typing.Iterable[typing.Tuple[int, GraphRow]],
@@ -284,7 +378,7 @@ Parse a stream of rows to construct a graph partition.
                     ic(node)
 
             # validate the node/edge sequencing and consistency among the rows
-            if row["src_name"] != node.name:
+            elif row["src_name"] != node.name:
                 error_node = row["src_name"]
                 message = f"|{ error_node }| out of sequence at row {row_num}"
                 raise ValueError(message)

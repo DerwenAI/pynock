@@ -1,0 +1,7 @@
+@prefix ind:  <http://purl.org/heals/ingredient/> .
+@prefix wtm:  <http://purl.org/heals/food/> .
+
+<https://www.food.com/recipe/327593> a wtm:Recipe ;
+    wtm:hasIngredient ind:ChickenEgg,
+        ind:CowMilk,
+        ind:WholeWheatFlour .

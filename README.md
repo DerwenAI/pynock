@@ -1,21 +1,33 @@
 # pynock
 
 This library `pynock` provides Examples for working with low-level
-Parquet read/write efficiently in Python. The intent is to serialize
-graphs which can align data representations for multiple areas of
-popular graph technologies:
+Parquet read/write efficiently in Python.
+
+Our intent is to serialize graphs which align the data representations
+required for multiple areas of popular graph technologies:
 
   * semantic graphs (e.g., W3C)
   * labeled property graphs (e.g., openCypher)
   * probabilistic graphs (e.g., PSL)
   * edge lists (e.g., NetworkX)
 
-This approach also supports distributed partitions based on
-Arrow/Parquet which can scale to very large (+1 T node) graphs.
+This approach also supports distributed partitions based on Parquet
+which can scale to very large (+1 T node) graphs.
+
+For details about the formatting required in Parquet files, see the
+[`FORMAT.md`](https://github.com/DerwenAI/pynock/blob/main/FORMAT.md)
+page.
+
+
+## Caveats
 
 Note that the `pynock` library does not provide any support for graph
 computation or querying, merely for manipulating and validating
 serialization formats.
+
+Our intent is to provide examples where others from the broader open
+source developer community can help troubleshoot edge cases in
+Parquet.
 
 
 ## Dependencies
@@ -40,10 +52,14 @@ python3 -m pip install -U pip wheel
 python3 -m pip install -r requirements.txt
 ```
 
-Then to run the example code from CLI:
+Then to run examples from CLI:
 
 ```
-python3 example.py load-parquet --file dat/recipes.parq --debug
+python3 example.py load-parq --file dat/recipes.parq --debug
+```
+
+```
+python3 example.py load-rdf --file dat/tiny.ttl --save-cvs foo.cvs
 ```
 
 For further information:
@@ -72,7 +88,7 @@ A `nock` is the English word for the end of an arrow opposite its point.
 
 ## Background
 
-For more details about using Arrow/Parquet see:
+For more details about using Arrow and Parquet see:
 
 ["Apache Arrow homepage"](https://arrow.apache.org/)
 
