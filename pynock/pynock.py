@@ -33,25 +33,6 @@ NOT_FOUND: int = -1
 
 
 ######################################################################
-## nodes
-
-class Node (BaseModel):  # pylint: disable=R0903
-    """
-Representing a node (entity) in the graph.
-    """
-    BASED_LOCAL: typing.ClassVar[int] = -1
-
-    node_id: int = NOT_FOUND
-    name: str = ""
-    shadow: int = BASED_LOCAL
-    is_rdf: bool = True
-    label_set: typing.Set[str] = set()
-    truth: float = 1.0
-    prop_map: PropMap = {}
-    edge_map: typing.Dict[int, list] = {}
-
-
-######################################################################
 ## edges
 
 class Edge (BaseModel):  # pylint: disable=R0903
@@ -64,6 +45,40 @@ Representing an edge (arc) in the graph.
     node_id: int = NOT_FOUND
     truth: float = 1.0
     prop_map: PropMap = {}
+
+
+######################################################################
+## nodes
+
+class Node (BaseModel):  # pylint: disable=R0903
+    """
+Representing a node (entity) in the graph.
+    """
+    BASED_LOCAL: typing.ClassVar[int] = -1
+
+    node_id: int = NOT_FOUND
+    name: str = ""
+    shadow: int = BASED_LOCAL
+    is_rdf: bool = False
+    label_set: typing.Set[str] = set()
+    truth: float = 1.0
+    prop_map: PropMap = {}
+    edge_map: typing.Dict[int, list] = {}
+
+
+    def add_edge (
+        self,
+        edge: Edge,
+        *,
+        debug: bool = False,  # pylint: disable=W0613
+        ) -> None:
+        """
+Add the given edge to its src node.
+        """
+        if edge.rel not in self.edge_map:
+            self.edge_map[edge.rel] = []
+
+        self.edge_map[edge.rel].append(edge)
 
 
 ######################################################################
@@ -152,10 +167,22 @@ Save property pairs to a JSON string.
 
         if len(prop_map) > 0:
             props = json.dumps(prop_map)
-            props = props.replace("\": \"", "\":\"")
-            props = props.replace("\", \"", "\",\"")
+            props = props.replace("\": ", "\":")
+            props = props.replace(", \"", ",\"")
 
         return props
+
+
+    def add_node (
+        self,
+        node: Node,
+        *,
+        debug: bool = False,  # pylint: disable=W0613
+        ) -> None:
+        """
+Add a node to the partition.
+        """
+        self.nodes[node.node_id] = node
 
 
     def populate_node (
@@ -169,6 +196,7 @@ Populate a Node object from the given Parquet row data.
         """
         # create a src node
         node: Node = Node(
+            node_id = self.create_node_name(row["src_name"]),
             name = row["src_name"],
             truth = row["truth"],
             is_rdf = row["is_rdf"],
@@ -177,10 +205,7 @@ Populate a Node object from the given Parquet row data.
             prop_map = self.load_props(row["props"]),
         )
 
-        node.node_id = self.create_node_name(node.name)
-
-        # add this node to the global list
-        self.nodes[node.node_id] = node
+        self.add_node(node)
 
         return node
 
@@ -196,7 +221,10 @@ Populate a Node object from the given Parquet row data.
 Lookup the integer index for the named edge relation.
         """
         if rel_name not in self.edge_rels:
-            self.edge_rels.append(rel_name)
+            if create:
+                self.edge_rels.append(rel_name)
+            else:
+                return NOT_FOUND
 
         return self.edge_rels.index(rel_name)
 
@@ -223,7 +251,7 @@ Populate an Edge object from the given Parquet row data.
                 is_rdf = row["is_rdf"],
             )
 
-            self.nodes[dst_node.node_id] = dst_node
+            self.add_node(dst_node)
 
         # create the edge
         edge: Edge = Edge(
@@ -233,11 +261,7 @@ Populate an Edge object from the given Parquet row data.
             prop_map = self.load_props(row["props"]),
         )
 
-        # add this edge to its src node
-        if edge.rel not in node.edge_map:
-            node.edge_map[edge.rel] = []
-
-        node.edge_map[edge.rel].append(edge)
+        node.add_edge(edge)
 
         return edge
 
@@ -290,7 +314,7 @@ Iterate through the rows in a CSV file.
         row_num: int = 0
 
         with open(csv_path) as fp:
-            reader = csv.reader(fp, delimiter=",")
+            reader = csv.reader(fp, delimiter=",", quotechar='"')
             header = next(reader)
 
             for row_val in reader:
@@ -411,8 +435,10 @@ Iterator for generating rows on writes.
                 "props": self.save_props(node.prop_map),
             }
 
+            edge_id: int = 0
+
             for _, edge_list in node.edge_map.items():
-                for edge_id, edge in enumerate(edge_list):
+                for edge in edge_list:
                     yield {
                         "src_name": node.name,
                         "edge_id": edge_id,
@@ -424,6 +450,8 @@ Iterator for generating rows on writes.
                         "labels": None,
                         "props": self.save_props(edge.prop_map),
                     }
+
+                    edge_id += 1
 
 
     def save_file_parquet (

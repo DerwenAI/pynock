@@ -40,7 +40,13 @@ The Parquet file formats depend on Arrow 5.0.x or later.
 For the Python dependencies, see the `requirements.txt` file.
 
 
-## Getting started
+## Set up
+
+To install via PIP:
+
+```
+python3 -m pip install -U pynock
+```
 
 To set up this library locally:
 
@@ -52,7 +58,9 @@ python3 -m pip install -U pip wheel
 python3 -m pip install -r requirements.txt
 ```
 
-Then to run examples from CLI:
+## Usage via CLI
+
+To run examples from CLI:
 
 ```
 python3 example.py load-parq --file dat/recipes.parq --debug
@@ -68,22 +76,11 @@ For further information:
 python3 example.py --help
 ```
 
+## Usage programmatically in Python
 
-## Package Release
-
-First, verify that `setup.py` will run correctly for the package
-release process:
-
-```
-python3 -m pip install -e .
-python3 -m pytest tests/
-python3 -m pip uninstall pynock
-```
-
-
-## Why the name?
-
-A `nock` is the English word for the end of an arrow opposite its point.
+To construct a partition file programmatically, see the sample code
+[`tiny.py`](https://github.com/DerwenAI/pynock/blob/main/tiny.py)
+which builds the minimal recipe example as an RDF graph.
 
 
 ## Background
@@ -97,3 +94,20 @@ For more details about using Arrow and Parquet see:
 ["Apache Arrow: Read DataFrame With Zero Memory"](https://towardsdatascience.com/apache-arrow-read-dataframe-with-zero-memory-69634092b1a)  
 Dejan Simic  
 _Towards Data Science_ (2020-06-25)
+
+
+## Why the name?
+
+A `nock` is the English word for the end of an arrow opposite its point.
+
+
+## Package Release
+
+First, verify that `setup.py` will run correctly for the package
+release process:
+
+```
+python3 -m pip install -e .
+python3 -m pytest tests/
+python3 -m pip uninstall pynock
+```
