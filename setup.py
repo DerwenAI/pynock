@@ -1,5 +1,5 @@
 """
-Package set up, used for CI testing.
+Package set up.
 """
 
 import pathlib
@@ -9,13 +9,21 @@ import setuptools  # type: ignore
 
 
 DESCRIP = """
-Examples for low-level Parquet read/write in Python
+A proposed standard `NOCK` for a Parquet format that supports efficient
+distributed serialization of multiple kinds of graph technologies.
 """.strip()
 
 KEYWORDS = [
+    "CSV",
+    "Parquet",
+    "RDF",
+    "dataframe",
+    "graph data science",
     "knowledge graph",
-    "parquet",
+    "openCypher",
     "serialization",
+    "spreadsheet",
+    "open standard",
 ]
 
 
@@ -40,12 +48,13 @@ def parse_requirements_file (filename: str) -> typing.List[ str ]:
 if __name__ == "__main__":
     setuptools.setup(
         name = "pynock",
-        version = "1.0.0",
+        version = "1.0.1",
         license = "MIT",
 
         python_requires = ">=3.8",
         install_requires = parse_requirements_file("requirements.txt"),
         packages = setuptools.find_packages(exclude=[
+            "bin",
             "dat",
             "tests",
             "venv",
