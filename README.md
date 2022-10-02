@@ -1,22 +1,33 @@
 # pynock
 
+The following describes a proposed standard `NOCK` for a Parquet
+format that supports efficient distributed serialization of multiple
+kinds of graph technologies.
+
 This library `pynock` provides Examples for working with low-level
 Parquet read/write efficiently in Python.
 
-Our intent is to serialize graphs which align the data representations
-required for multiple areas of popular graph technologies:
+Our intent is to serialize graphs in a way which aligns the data
+representations required for popular graph technologies and related
+data sources:
 
-  * semantic graphs (e.g., W3C)
+  * semantic graphs (e.g., W3C formats RDF, TTL, JSON-LD, etc.)
   * labeled property graphs (e.g., openCypher)
   * probabilistic graphs (e.g., PSL)
-  * edge lists (e.g., NetworkX)
+  * spreadsheet import/export (e.g., CSV)
+  * dataframes (e.g., Pandas, Dask, Spark, etc.)
+  * edge lists (e.g., NetworkX, cuGraph, etc.)
 
-This approach also supports distributed partitions based on Parquet
-which can scale to very large (+1 T node) graphs.
+This approach also efficient distributed partitions based on Parquet,
+which can scale on a cluster to very large (+1 T node) graphs.
 
-For details about the formatting required in Parquet files, see the
+For details about the proposed format in Parquet files, see the
 [`FORMAT.md`](https://github.com/DerwenAI/pynock/blob/main/FORMAT.md)
-page.
+file.
+
+If you have questions, suggestions, or bug reports, please open
+[an issue](https://github.com/DerwenAI/pynock/issues)
+on our public GitHub repo.
 
 
 ## Caveats
@@ -37,7 +48,9 @@ no guarantees regarding correct behaviors on other versions.
 
 The Parquet file formats depend on Arrow 5.0.x or later.
 
-For the Python dependencies, see the `requirements.txt` file.
+For the Python dependencies, the library versioning info is listed in the
+[`requirements.txt`](https://github.com/DerwenAI/pynock/blob/main/requirements.txt)
+file.
 
 
 ## Set up
@@ -63,17 +76,17 @@ python3 -m pip install -r requirements.txt
 To run examples from CLI:
 
 ```
-python3 example.py load-parq --file dat/recipes.parq --debug
+python3 cli.py load-parq --file dat/recipes.parq --debug
 ```
 
 ```
-python3 example.py load-rdf --file dat/tiny.ttl --save-cvs foo.cvs
+python3 cli.py load-rdf --file dat/tiny.ttl --save-cvs foo.cvs
 ```
 
 For further information:
 
 ```
-python3 example.py --help
+python3 cli.py --help
 ```
 
 ## Usage programmatically in Python
@@ -100,8 +113,31 @@ _Towards Data Science_ (2020-06-25)
 
 A `nock` is the English word for the end of an arrow opposite its point.
 
+If you must have an acronym, the proposed standard `NOCK` stands for
+**N**etwork **O**bjects for **C**onsistent **K**nowledge.
 
-## Package Release
+Also, the library name had minimal namespace collisions on GitHub and
+PyPi :)
+
+
+## Developer updates
+
+To set up the build environment locally, also run:
+```
+python3 -m pip install -U pip setuptools wheel
+python3 -m pip install -r requirements-dev.txt
+```
+
+Note that we require the use of [`pre-commit` hooks](https://pre-commit.com/)
+and to configure that locally:
+
+```
+pre-commit install
+git config --local core.hooksPath .git/hooks/
+```
+
+
+## Package releases
 
 First, verify that `setup.py` will run correctly for the package
 release process:
@@ -110,4 +146,22 @@ release process:
 python3 -m pip install -e .
 python3 -m pytest tests/
 python3 -m pip uninstall pynock
+```
+
+Next, update the semantic version number in `setup.py` and create a
+release on GitHub, and make sure to update the local repo:
+
+```
+git stash
+git checkout main
+git pull
+```
+
+Make sure that you have set up your 2FA authentication for generating
+an API token on PyPi: <https://pypi.org/manage/account/token/>
+
+Then run our PyPi push script:
+
+```
+./bin/push_pypi.sh
 ```

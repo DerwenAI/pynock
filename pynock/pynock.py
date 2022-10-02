@@ -454,6 +454,15 @@ Iterator for generating rows on writes.
                     edge_id += 1
 
 
+    def to_df (
+        self,
+        ) -> pd.DataFrame:
+        """
+Represent the partition as a DataFrame.
+        """
+        return pd.DataFrame([row for row in self.iter_gen_rows()])
+
+
     def save_file_parquet (
         self,
         save_parq: cloudpathlib.AnyPath,
@@ -463,8 +472,7 @@ Iterator for generating rows on writes.
         """
 Save a partition to a Parquet file.
         """
-        df = pd.DataFrame([row for row in self.iter_gen_rows()])
-        table = pa.Table.from_pandas(df)
+        table = pa.Table.from_pandas(self.to_df())
         writer = pq.ParquetWriter(save_parq.as_posix(), table.schema)
         writer.write_table(table)
         writer.close()
@@ -479,8 +487,7 @@ Save a partition to a Parquet file.
         """
 Save a partition to a CSV file.
         """
-        df = pd.DataFrame([row for row in self.iter_gen_rows()])
-        df.to_csv(save_csv.as_posix(), index=False)
+        self.to_df().to_csv(save_csv.as_posix(), index=False)
 
 
     def save_file_rdf (

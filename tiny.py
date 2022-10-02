@@ -6,6 +6,7 @@ A minimal example using `pynock` to construct a partition
 programmatically, based on the graph described in `dat/tiny.rdf`
 """
 
+from icecream import ic
 import cloudpathlib
 
 from pynock import Partition, Node, Edge
@@ -124,3 +125,7 @@ if __name__ == "__main__":
     part.save_file_rdf(cloudpathlib.AnyPath("foo.rdf"), "ttl")
 
     # check the files "foo.*" to see what was constructed programmatically
+    # also, here's a dataframe representation
+    df = part.to_df()
+    ic(df.head())
+
