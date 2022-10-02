@@ -131,7 +131,7 @@ Save property pairs to a JSON string.
 
     def populate_node (
         self,
-        dat: dict,
+        row: dict,
         *,
         debug: bool = False,  # pylint: disable=W0613
         ) -> Node:
@@ -139,12 +139,12 @@ Save property pairs to a JSON string.
 Populate a Node object from the given Parquet row data.
         """
         node: Node = Node(
-            name = dat["src_name"],
-            truth = dat["truth"],
-            is_rdf = dat["is_rdf"],
-            shadow = dat["shadow"],
-            label_set = set(dat["labels"].split(",")),
-            prop_map = self.load_props(dat["props"]),
+            name = row["src_name"],
+            truth = row["truth"],
+            is_rdf = row["is_rdf"],
+            shadow = row["shadow"],
+            label_set = set(row["labels"].split(",")),
+            prop_map = self.load_props(row["props"]),
         )
 
         # add this node to the global list
@@ -172,7 +172,7 @@ Lookup the integer index for the named edge relation.
 
     def populate_edge (
         self,
-        dat: dict,
+        row: dict,
         node: Node,
         *,
         debug: bool = False,  # pylint: disable=W0613
@@ -181,10 +181,10 @@ Lookup the integer index for the named edge relation.
 Populate an Edge object from the given Parquet row data.
         """
         edge: Edge = Edge(
-            rel = self.get_edge_rel(dat["rel_name"], create=True),
-            truth = dat["truth"],
-            node_id = self.create_node(dat["dst_name"]),
-            prop_map = self.load_props(dat["props"]),
+            rel = self.get_edge_rel(row["rel_name"], create=True),
+            truth = row["truth"],
+            node_id = self.create_node(row["dst_name"]),
+            prop_map = self.load_props(row["props"]),
         )
 
         # add this edge to its src node
@@ -207,23 +207,23 @@ Populate an Edge object from the given Parquet row data.
 Iterate through the rows in a Parquet row group.
         """
         for r_idx in range(row_group.num_rows):
-            dat: dict = {}
+            row: dict = {}
 
             for c_idx in range(row_group.num_columns):
                 try:
                     key: str = row_group.column_names[c_idx]
                     col: pyarrow.lib.ChunkedArray = row_group.column(c_idx)  # pylint: disable=I1101
                     val: typing.Any = col[r_idx]
-                    dat[key] = val.as_py()
+                    row[key] = val.as_py()
                 except IndexError as ex:
                     ic(ex, r_idx, c_idx)
                     return
 
             if debug:
                 print()
-                ic(r_idx, dat)
+                ic(r_idx, row)
 
-            yield dat
+            yield row
 
 
     def load_rows (
@@ -238,10 +238,10 @@ Load and parse all of the Parquet rows into a graph partition.
         for i in range(pq_file.num_row_groups):
             row_group: pyarrow.lib.Table = pq_file.read_row_group(i)  # pylint: disable=I1101
 
-            for dat in track(self.iter_row_group(row_group), description=f"row group {i}"):
+            for row in track(self.iter_row_group(row_group), description=f"row group {i}"):
                 # have we reached a row which begins a new node?
-                if dat["edge_id"] < 0:
-                    node = self.populate_node(dat)
+                if row["edge_id"] < 0:
+                    node = self.populate_node(row)
 
                     if debug:
                         print()
@@ -249,10 +249,10 @@ Load and parse all of the Parquet rows into a graph partition.
 
                 # otherwise this row is an edge for the most recent node
                 else:
-                    assert dat["src_name"] == node.name
+                    assert row["src_name"] == node.name
                     # 'edge_id': 2,
 
-                    edge = self.populate_edge(dat, node)
+                    edge = self.populate_edge(row, node)
 
                     if debug:
                         ic(edge)
@@ -292,6 +292,22 @@ Iterator for generating rows on writes.
                     }
 
 
+    def save_file_parquet (
+        self,
+        save_parq: cloudpathlib.AnyPath,
+        *,
+        debug: bool = False,
+        ) -> None:
+        """
+Save a partition to a Parquet file.
+        """
+        df = pd.DataFrame([ row for row in self.iter_gen_rows() ])
+        table = pa.Table.from_pandas(df)
+        writer = pq.ParquetWriter(save_parq.as_posix(), table.schema)
+        writer.write_table(table)
+        writer.close()
+
+
     def save_file_csv (
         self,
         save_csv: cloudpathlib.AnyPath,
@@ -303,29 +319,3 @@ Save a partition to a CSV file.
         """
         df = pd.DataFrame([ row for row in self.iter_gen_rows() ])
         df.to_csv(save_csv.as_posix(), index=False)
-
-
-    def save_file_parquet (
-        self,
-        save_parq: cloudpathlib.AnyPath,
-        *,
-        debug: bool = False,
-        ) -> None:
-        """
-Save a partition to a Parquet file.
-        """
-        table = pa.table({
-            "n_legs": [ 2, 2, 4, 4, 5, 100 ],
-            "animal": ["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"],
-        })
-        ic(table)
-                  
-        writer = pq.ParquetWriter(save_parq.as_posix(), table.schema)
-        writer.write_table(table)
-        writer.close()
-
-        df = pd.read_csv("dat/tiny.csv")
-        ic(df)
-
-        table = pa.Table.from_pandas(df)
-        ic(table)

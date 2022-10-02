@@ -1,4 +1,7 @@
 # added by check-manifest
+include *.md
 include *.py
+include *.txt
+recursive-include dat *.csv
 recursive-include dat *.parq
 recursive-include tests *.py
