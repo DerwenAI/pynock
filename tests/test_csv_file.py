@@ -25,10 +25,10 @@ def test_save_file_csv ():
 
     try:
         load_parq: str = "dat/recipes.parq"
-        pq_file: pq.ParquetFile = pq.ParquetFile(load_parq)
+        parq_file: pq.ParquetFile = pq.ParquetFile(load_parq)
 
         # leverage Arrow to convert the "exp" baseline
-        for batch in pq_file.iter_batches():
+        for batch in parq_file.iter_batches():
             df = batch.to_pandas()
             df.to_csv(tmp_exp.name, index=False)
             break
@@ -38,7 +38,7 @@ def test_save_file_csv ():
             part_id = 0,
         )
 
-        part.load_rows(pq_file)
+        part.load_rows_parquet(parq_file)
 
         # write the partition as a CSV file
         part.save_file_csv(cloudpathlib.AnyPath(tmp_obs.name))

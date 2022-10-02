@@ -6,6 +6,7 @@ Example graph serialization using low-level Parquet read/write
 efficiently in Python.
 """
 
+import csv
 import json
 import typing
 
@@ -226,19 +227,58 @@ Iterate through the rows in a Parquet row group.
             yield row
 
 
-    def load_rows (
+    def load_rows_parquet (
         self,
-        pq_file: pq.ParquetFile,
+        parq_file: pq.ParquetFile,
         *,
         debug: bool = False,
         ) -> None:
         """
-Load and parse all of the Parquet rows into a graph partition.
+Load a Parquet file and parse it rows into a graph partition.
         """
-        for i in range(pq_file.num_row_groups):
-            row_group: pyarrow.lib.Table = pq_file.read_row_group(i)  # pylint: disable=I1101
+        for i in range(parq_file.num_row_groups):
+            row_group: pyarrow.lib.Table = parq_file.read_row_group(i)  # pylint: disable=I1101
 
             for row in track(self.iter_row_group(row_group), description=f"row group {i}"):
+                # have we reached a row which begins a new node?
+                if row["edge_id"] < 0:
+                    node = self.populate_node(row)
+
+                    if debug:
+                        print()
+                        ic(node)
+
+                # otherwise this row is an edge for the most recent node
+                else:
+                    assert row["src_name"] == node.name
+                    # 'edge_id': 2,
+
+                    edge = self.populate_edge(row, node)
+
+                    if debug:
+                        ic(edge)
+
+
+    def load_rows_csv (
+        self,
+        csv_path: cloudpathlib.AnyPath,
+        *,
+        debug: bool = False,
+        ) -> None:
+        """
+Load a CSV file and parse it rows into a graph partition.
+        """
+        with open(csv_path) as fp:
+            reader = csv.reader(fp, delimiter=",")
+            header = next(reader)
+
+            for row_val in reader:
+                row: typing.Dict[str, typing.Any] = dict(zip(header, row_val))
+                row["edge_id"] = int(row["edge_id"])
+                row["is_rdf"] = bool(row["is_rdf"])
+                row["shadow"] = int(row["shadow"])
+                row["truth"] = float(row["truth"])
+
                 # have we reached a row which begins a new node?
                 if row["edge_id"] < 0:
                     node = self.populate_node(row)
