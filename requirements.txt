@@ -1,5 +1,6 @@
 cloudpathlib >= 0.10
 icecream >= 2.1
+pandas >= 1.4
 pydantic >= 1.10
 pyarrow >= 6.0
 typer[all] >= 0.6

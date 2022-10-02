@@ -11,9 +11,12 @@ import typing
 
 from icecream import ic  # type: ignore  # pylint: disable=E0401
 from pydantic import BaseModel  # pylint: disable=E0401,E0611
-import pyarrow.parquet as pq  # type: ignore  # pylint: disable=E0401
-import pyarrow.lib  # type: ignore  # pylint: disable=E0401
 from rich.progress import track  # pylint: disable=E0401
+import cloudpathlib
+import pandas as pd
+import pyarrow as pa  # type: ignore  # pylint: disable=E0401
+import pyarrow.lib  # type: ignore  # pylint: disable=E0401
+import pyarrow.parquet as pq  # type: ignore  # pylint: disable=E0401
 
 
 NOT_FOUND: int = -1
@@ -106,6 +109,26 @@ Load property pairs from a JSON string.
         return prop_map
 
 
+    @classmethod
+    def save_props (
+        cls,
+        prop_map: typing.Dict[str, str],
+        *,
+        debug: bool = False,  # pylint: disable=W0613
+        ) -> str:
+        """
+Save property pairs to a JSON string.
+        """
+        props: str = "null"
+
+        if len(prop_map) > 0:
+            props = json.dumps(prop_map)
+            props = props.replace("\": \"", "\":\"")
+            props = props.replace("\", \"", "\",\"")
+
+        return props
+
+
     def populate_node (
         self,
         dat: dict,
@@ -174,7 +197,7 @@ Populate an Edge object from the given Parquet row data.
 
 
     @classmethod
-    def iter_rows (
+    def iter_row_group (
         cls,
         row_group: pyarrow.lib.Table,  # pylint: disable=I1101
         *,
@@ -215,7 +238,7 @@ Load and parse all of the Parquet rows into a graph partition.
         for i in range(pq_file.num_row_groups):
             row_group: pyarrow.lib.Table = pq_file.read_row_group(i)  # pylint: disable=I1101
 
-            for dat in track(self.iter_rows(row_group), description=f"row group {i}"):
+            for dat in track(self.iter_row_group(row_group), description=f"row group {i}"):
                 # have we reached a row which begins a new node?
                 if dat["edge_id"] < 0:
                     node = self.populate_node(dat)
@@ -233,3 +256,76 @@ Load and parse all of the Parquet rows into a graph partition.
 
                     if debug:
                         ic(edge)
+
+
+    def iter_gen_rows (
+        self,
+        ) -> typing.Iterable:
+        """
+Iterator for generating rows on writes.
+        """
+        for node in self.nodes.values():
+            yield {
+                "src_name": node.name,
+                "edge_id": -1,
+                "rel_name": None,
+                "dst_name": None,
+                "truth": node.truth,
+                "shadow": node.shadow,
+                "is_rdf": node.is_rdf,
+                "labels": ",".join(node.label_set),
+                "props": self.save_props(node.prop_map),
+            }
+
+            for _, edge_list in node.edge_map.items():
+                for edge_id, edge in enumerate(edge_list):
+                    yield {
+                        "src_name": node.name,
+                        "edge_id": edge_id,
+                        "rel_name": self.edge_rels[edge.rel],
+                        "dst_name": self.nodes[edge.node_id].name,
+                        "truth": edge.truth,
+                        "shadow": -1,
+                        "is_rdf": node.is_rdf,
+                        "labels": None,
+                        "props": self.save_props(edge.prop_map),
+                    }
+
+
+    def save_file_csv (
+        self,
+        save_csv: cloudpathlib.AnyPath,
+        *,
+        debug: bool = False,
+        ) -> None:
+        """
+Save a partition to a CSV file.
+        """
+        df = pd.DataFrame([ row for row in self.iter_gen_rows() ])
+        df.to_csv(save_csv.as_posix(), index=False)
+
+
+    def save_file_parquet (
+        self,
+        save_parq: cloudpathlib.AnyPath,
+        *,
+        debug: bool = False,
+        ) -> None:
+        """
+Save a partition to a Parquet file.
+        """
+        table = pa.table({
+            "n_legs": [ 2, 2, 4, 4, 5, 100 ],
+            "animal": ["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"],
+        })
+        ic(table)
+                  
+        writer = pq.ParquetWriter(save_parq.as_posix(), table.schema)
+        writer.write_table(table)
+        writer.close()
+
+        df = pd.read_csv("dat/tiny.csv")
+        ic(df)
+
+        table = pa.Table.from_pandas(df)
+        ic(table)

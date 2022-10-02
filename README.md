@@ -72,9 +72,11 @@ A `nock` is the English word for the end of an arrow opposite its point.
 
 ## Background
 
-For more details about using Arrow/Parquet:
+For more details about using Arrow/Parquet see:
 
 ["Apache Arrow homepage"](https://arrow.apache.org/)
+
+["Finer-grained Reading and Writing"](https://arrow.apache.org/docs/python/parquet.html#finer-grained-reading-and-writing)
 
 ["Apache Arrow: Read DataFrame With Zero Memory"](https://towardsdatascience.com/apache-arrow-read-dataframe-with-zero-memory-69634092b1a)  
 Dejan Simic  
