@@ -20,6 +20,12 @@ import pyarrow.lib  # type: ignore  # pylint: disable=E0401
 import pyarrow.parquet as pq  # type: ignore  # pylint: disable=E0401
 
 
+######################################################################
+## non-class definitions
+
+GraphRow = typing.Dict[str, typing.Any]
+PropMap = typing.Dict[str, typing.Any]
+
 NOT_FOUND: int = -1
 
 
@@ -38,7 +44,7 @@ Representing a node (entity) in the graph.
     is_rdf: bool = True
     label_set: typing.Set[str] = set()
     truth: float = 1.0
-    prop_map: typing.Dict[str, str] = {}
+    prop_map: PropMap = {}
     edge_map: typing.Dict[int, list] = {}
 
 
@@ -54,7 +60,7 @@ Representing an edge (arc) in the graph.
     rel: int = BLANK_RELATION
     node_id: int = NOT_FOUND
     truth: float = 1.0
-    prop_map: typing.Dict[str, str] = {}
+    prop_map: PropMap = {}
 
 
 ######################################################################
@@ -68,7 +74,7 @@ Representing a partition in the graph.
     next_node: int = 0
     nodes: typing.Dict[int, Node] = {}
     node_names: typing.Dict[str, int] = {}
-    edge_rels: typing.List[str] = [ "" ]
+    edge_rels: typing.List[str] = [""]
 
 
     def create_node (
@@ -98,11 +104,11 @@ Create a node, looking up first to avoid duplicates.
         props: str,
         *,
         debug: bool = False,  # pylint: disable=W0613
-        ) -> typing.Dict[str, str]:
+        ) -> PropMap:
         """
 Load property pairs from a JSON string.
         """
-        prop_map: typing.Dict[str, str] = {}
+        prop_map: PropMap = {}
 
         if props not in ("null", ""):
             prop_map = json.loads(props)
@@ -113,7 +119,7 @@ Load property pairs from a JSON string.
     @classmethod
     def save_props (
         cls,
-        prop_map: typing.Dict[str, str],
+        prop_map: PropMap,
         *,
         debug: bool = False,  # pylint: disable=W0613
         ) -> str:
@@ -132,7 +138,7 @@ Save property pairs to a JSON string.
 
     def populate_node (
         self,
-        row: dict,
+        row: GraphRow,
         *,
         debug: bool = False,  # pylint: disable=W0613
         ) -> Node:
@@ -173,7 +179,7 @@ Lookup the integer index for the named edge relation.
 
     def populate_edge (
         self,
-        row: dict,
+        row: GraphRow,
         node: Node,
         *,
         debug: bool = False,  # pylint: disable=W0613
@@ -198,109 +204,102 @@ Populate an Edge object from the given Parquet row data.
 
 
     @classmethod
-    def iter_row_group (
+    def iter_load_parquet (
         cls,
-        row_group: pyarrow.lib.Table,  # pylint: disable=I1101
-        *,
-        debug: bool = False,  # pylint: disable=W0613
-        ) -> typing.Iterable:
-        """
-Iterate through the rows in a Parquet row group.
-        """
-        for r_idx in range(row_group.num_rows):
-            row: dict = {}
-
-            for c_idx in range(row_group.num_columns):
-                try:
-                    key: str = row_group.column_names[c_idx]
-                    col: pyarrow.lib.ChunkedArray = row_group.column(c_idx)  # pylint: disable=I1101
-                    val: typing.Any = col[r_idx]
-                    row[key] = val.as_py()
-                except IndexError as ex:
-                    ic(ex, r_idx, c_idx)
-                    return
-
-            if debug:
-                print()
-                ic(r_idx, row)
-
-            yield row
-
-
-    def load_rows_parquet (
-        self,
         parq_file: pq.ParquetFile,
         *,
         debug: bool = False,
-        ) -> None:
+        ) -> typing.Iterable[typing.Tuple[int, GraphRow]]:
         """
-Load a Parquet file and parse it rows into a graph partition.
+Iterate through the rows in a Parquet file.
         """
-        for i in range(parq_file.num_row_groups):
-            row_group: pyarrow.lib.Table = parq_file.read_row_group(i)  # pylint: disable=I1101
+        row_num: int = 0
 
-            for row in track(self.iter_row_group(row_group), description=f"row group {i}"):
-                # have we reached a row which begins a new node?
-                if row["edge_id"] < 0:
-                    node = self.populate_node(row)
+        for batch in range(parq_file.num_row_groups):
+            row_group: pyarrow.lib.Table = parq_file.read_row_group(batch)  # pylint: disable=I1101
 
-                    if debug:
-                        print()
-                        ic(node)
+            for r_idx in range(row_group.num_rows):
+                row: GraphRow = {}
 
-                # otherwise this row is an edge for the most recent node
-                else:
-                    assert row["src_name"] == node.name
-                    # 'edge_id': 2,
+                for c_idx in range(row_group.num_columns):
+                    try:
+                        key: str = row_group.column_names[c_idx]
+                        col: pyarrow.lib.ChunkedArray = row_group.column(c_idx)  # pylint: disable=I1101
+                        val: typing.Any = col[r_idx]
+                        row[key] = val.as_py()
+                    except IndexError as ex:
+                        ic(ex, r_idx, c_idx)
+                        return
 
-                    edge = self.populate_edge(row, node)
+                if debug:
+                    print()
+                    ic(r_idx, row)
 
-                    if debug:
-                        ic(edge)
+                yield row_num, row
+                row_num += 1
 
 
-    def load_rows_csv (
+    def iter_load_csv (
         self,
         csv_path: cloudpathlib.AnyPath,
         *,
         debug: bool = False,
-        ) -> None:
+        ) -> typing.Iterable[typing.Tuple[int, GraphRow]]:
         """
-Load a CSV file and parse it rows into a graph partition.
+Iterate through the rows in a CSV file.
         """
+        row_num: int = 0
+
         with open(csv_path) as fp:
             reader = csv.reader(fp, delimiter=",")
             header = next(reader)
 
             for row_val in reader:
-                row: typing.Dict[str, typing.Any] = dict(zip(header, row_val))
+                row: GraphRow = dict(zip(header, row_val))
                 row["edge_id"] = int(row["edge_id"])
                 row["is_rdf"] = bool(row["is_rdf"])
                 row["shadow"] = int(row["shadow"])
                 row["truth"] = float(row["truth"])
 
-                # have we reached a row which begins a new node?
-                if row["edge_id"] < 0:
-                    node = self.populate_node(row)
+                yield row_num, row
+                row_num += 1
 
-                    if debug:
-                        print()
-                        ic(node)
 
-                # otherwise this row is an edge for the most recent node
-                else:
-                    assert row["src_name"] == node.name
-                    # 'edge_id': 2,
+    def parse_rows (
+        self,
+        iter_load: typing.Iterable[typing.Tuple[int, GraphRow]],
+        *,
+        debug: bool = False,
+        ) -> None:
+        """
+Parse a stream of rows to construct a graph partition.
+        """
+        for row_num, row in track(iter_load, description=f"parse rows"):
+            # have we reached a row which begins a new node?
+            if row["edge_id"] < 0:
+                node: Node = self.populate_node(row)
 
-                    edge = self.populate_edge(row, node)
+                if debug:
+                    print()
+                    ic(node)
 
-                    if debug:
-                        ic(edge)
+            # validate the node/edge sequencing and consistency among the rows
+            if row["src_name"] != node.name:
+                error_node = row["src_name"]
+                message = f"|{ error_node }| out of sequence at row {row_num}"
+                raise ValueError(message)
+
+            # otherwise this row is an edge for the most recent node
+            else:
+                edge: Edge = self.populate_edge(row, node)
+
+                if debug:
+                    ic(edge)
 
 
     def iter_gen_rows (
         self,
-        ) -> typing.Iterable:
+        ) -> typing.Iterable[GraphRow]:
         """
 Iterator for generating rows on writes.
         """
@@ -341,7 +340,7 @@ Iterator for generating rows on writes.
         """
 Save a partition to a Parquet file.
         """
-        df = pd.DataFrame([ row for row in self.iter_gen_rows() ])
+        df = pd.DataFrame([row for row in self.iter_gen_rows()])
         table = pa.Table.from_pandas(df)
         writer = pq.ParquetWriter(save_parq.as_posix(), table.schema)
         writer.write_table(table)
@@ -357,5 +356,5 @@ Save a partition to a Parquet file.
         """
 Save a partition to a CSV file.
         """
-        df = pd.DataFrame([ row for row in self.iter_gen_rows() ])
+        df = pd.DataFrame([row for row in self.iter_gen_rows()])
         df.to_csv(save_csv.as_posix(), index=False)

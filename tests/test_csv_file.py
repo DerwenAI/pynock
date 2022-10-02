@@ -38,7 +38,7 @@ def test_save_file_csv ():
             part_id = 0,
         )
 
-        part.load_rows_parquet(parq_file)
+        part.parse_rows(part.iter_load_parquet(parq_file))
 
         # write the partition as a CSV file
         part.save_file_csv(cloudpathlib.AnyPath(tmp_obs.name))

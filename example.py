@@ -37,7 +37,7 @@ saving to different formats.
         part_id = 0,
     )
 
-    part.load_rows_parquet(parq_file)
+    part.parse_rows(part.iter_load_parquet(parq_file))
 
     if debug:
         ic(part)
@@ -62,7 +62,7 @@ saving to different formats.
         part_id = 0,
     )
 
-    part.load_rows_csv(cloudpathlib.AnyPath(load_csv))
+    part.parse_rows(part.iter_load_csv(cloudpathlib.AnyPath(load_csv)))
 
     if debug:
         ic(part)
