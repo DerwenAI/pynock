@@ -80,7 +80,7 @@ python3 cli.py load-parq --file dat/recipes.parq --debug
 ```
 
 ```
-python3 cli.py load-rdf --file dat/tiny.ttl --save-cvs foo.cvs
+python3 cli.py load-rdf --file dat/tiny.ttl --save-csv foo.csv
 ```
 
 For further information:
