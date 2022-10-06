@@ -1,10 +1,10 @@
-name: Run Python tests
+name: run python tests
 
 on: [push]
 
 jobs:
   build:
-    name: Run tests
+    name: run tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -18,12 +18,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: install dependencies
        run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Test with pytest
+      - name: test with pytest
         run: |
           pip install pytest
           pytest tests/
