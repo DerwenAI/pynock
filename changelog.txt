@@ -1,12 +1,13 @@
 # `pynock` changelog
 
-## 1.1.0
+## 1.1.1
 
 2022-10-06
 
   * added input validation and warnings
   * resolved conflicts with `pandas` for missing values
   * consistent parsing and generation of RDF
+  * created CI pipeline using docker and GH Actions
 
 
 ## 1.0.1

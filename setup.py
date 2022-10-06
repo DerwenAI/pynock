@@ -48,7 +48,7 @@ def parse_requirements_file (filename: str) -> typing.List[ str ]:
 if __name__ == "__main__":
     setuptools.setup(
         name = "pynock",
-        version = "1.0.1",
+        version = "1.1.1",
         license = "MIT",
 
         python_requires = ">=3.8",
@@ -79,6 +79,8 @@ if __name__ == "__main__":
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
             "Topic :: Scientific/Engineering :: Human Machine Interfaces",
             "Topic :: Scientific/Engineering :: Information Analysis",
+            "Topic :: Software Development :: Testing",
+            "Topic :: System :: Distributed Computing",
             ],
 
         url = "https://github.com/DerwenAI/pynock",
