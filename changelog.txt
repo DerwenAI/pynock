@@ -1,0 +1,24 @@
+# `pynock` changelog
+
+## 1.1.0
+
+2022-10-06
+
+  * added input validation and warnings
+  * resolved conflicts with `pandas` for missing values
+  * consistent parsing and generation of RDF
+
+
+## 1.0.1
+
+2022-10-03
+
+  * proposed open standard
+
+
+## 1.0.0
+
+2022-10-02
+
+  * first distribution on PyPi
+  * initial check-in

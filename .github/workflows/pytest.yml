@@ -11,31 +11,19 @@ jobs:
         python-version: [ "3.8", "3.9", "3.10" ]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v1
 
       - name: set up python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: actions/setup-python@v2
+      - name: Install dependencies
+       run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
-        with:
-          requirement_files: requirements.txt
-
-      - uses: syphar/restore-pip-download-cache@v1
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
-
-      # only runs when requirements files have been modified
-      - run: pip install -r requirements.txt
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
-
-      - name: install pytest dependencies
-        run: pip install pytest pytest-md pytest-emoji
-      - uses: pavelzw/pytest-action@v2
-        with:
-          emoji: false
-          verbose: false
-          job-summary: true
+      - name: Test with pytest
+        run: |
+          pip install pytest
+          pytest tests/
