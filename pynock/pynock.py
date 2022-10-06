@@ -194,20 +194,26 @@ Add a node to the partition.
         """
 Populate a Node object from the given Parquet row data.
         """
-        # create a src node
-        node: Node = Node(
-            node_id = self.create_node_name(row["src_name"]),
-            name = row["src_name"],
-            truth = row["truth"],
-            is_rdf = row["is_rdf"],
-            shadow = row["shadow"],
-            label_set = set(row["labels"].split(",")),
-            prop_map = self.load_props(row["props"]),
-        )
+        # first, lookup to make sure we don't overwrite if there are
+        # duplicates for the src node
+        src_name: str = row["src_name"]
+        src_node: typing.Optional[Node] = self.lookup_node(src_name, debug=debug)
 
-        self.add_node(node)
+        if src_node is None:
+            # create a src node
+            src_node = Node(
+                node_id = self.create_node_name(src_name, debug=debug),
+                name = row["src_name"],
+                truth = row["truth"],
+                is_rdf = row["is_rdf"],
+                shadow = row["shadow"],
+                label_set = set(row["labels"].split(",")),
+                prop_map = self.load_props(row["props"], debug=debug),
+            )
 
-        return node
+            self.add_node(src_node, debug=debug)  # type: ignore
+
+        return src_node  # type: ignore
 
 
     def get_edge_rel (
@@ -241,29 +247,66 @@ Populate an Edge object from the given Parquet row data.
         """
         # first, lookup the dst node and create if needed
         dst_name: str = row["dst_name"]
-        dst_node: typing.Optional[Node] = self.lookup_node(dst_name)
+        dst_node: typing.Optional[Node] = self.lookup_node(dst_name, debug=debug)
 
         if dst_node is None:
             dst_node = Node(
-                node_id = self.create_node_name(dst_name),
+                node_id = self.create_node_name(dst_name, debug=debug),
                 name = dst_name,
                 truth = row["truth"],
                 is_rdf = row["is_rdf"],
             )
 
-            self.add_node(dst_node)
+            self.add_node(dst_node, debug=debug)
 
         # create the edge
         edge: Edge = Edge(
-            rel = self.get_edge_rel(row["rel_name"], create=True),
+            rel = self.get_edge_rel(row["rel_name"], create=True, debug=debug),
             truth = row["truth"],
             node_id = dst_node.node_id,
-            prop_map = self.load_props(row["props"]),
+            prop_map = self.load_props(row["props"], debug=debug),
         )
 
-        node.add_edge(edge)
+        node.add_edge(edge, debug=debug)
 
         return edge
+
+
+    def dump_data (
+        self,
+        ) -> None:
+        """
+Dump the internal data structures for this partition.
+        """
+        for _, node_id in self.node_names.items():
+            node: Node = self.nodes[node_id]
+            ic(node)
+
+            for edge_rel, edge_list in node.edge_map.items():
+                for edge in edge_list:
+                    ic(edge_rel, edge)
+
+
+    @classmethod
+    def dump_parquet (
+        cls,
+        parq_file: pq.ParquetFile,
+        *,
+        debug: bool = False,
+        ) -> None:
+        """
+Dump the metadata and content for an input Parquet file.
+        """
+        ic(parq_file.metadata)
+        ic(parq_file.schema)
+        ic(parq_file.num_row_groups)
+
+        for batch in range(parq_file.num_row_groups):
+            row_group: pyarrow.lib.Table = parq_file.read_row_group(batch)  # pylint: disable=I1101
+
+            if row_group.num_rows > 0:
+                ic(row_group)
+                ic(row_group.columns)
 
 
     @classmethod
@@ -339,6 +382,7 @@ Iterate through the rows in a CSV file.
 Iterate through the rows implied by a RDF file.
         """
         row_num: int = 0
+        prev_subj = None
 
         kg = kglab.KnowledgeGraph()
         kg.load_rdf(rdf_path, format=rdf_format)
@@ -347,23 +391,26 @@ Iterate through the rows implied by a RDF file.
             if debug:
                 ic(subj, pred, objt)
 
-            # node representation for a triple
-            row: GraphRow = {}
-            row["src_name"] = str(subj)
-            row["truth"] = 1.0
-            row["edge_id"] = NOT_FOUND
-            row["rel_name"] = None
-            row["dst_name"] = None
-            row["is_rdf"] = True
-            row["shadow"] = Node.BASED_LOCAL
-            row["labels"] = ""
-            row["props"] = self.PROPS_NULL
+            if subj != prev_subj:
+                prev_subj = subj
 
-            if debug:
-                ic("node", subj, row_num, row)
+                # node representation for a triple
+                row: GraphRow = {}
+                row["src_name"] = str(subj)
+                row["truth"] = 1.0
+                row["edge_id"] = NOT_FOUND
+                row["rel_name"] = None
+                row["dst_name"] = None
+                row["is_rdf"] = True
+                row["shadow"] = Node.BASED_LOCAL
+                row["labels"] = ""
+                row["props"] = self.PROPS_NULL
 
-            yield row_num, row
-            row_num += 1
+                if debug:
+                    ic("node", subj, row_num, row)
+
+                yield row_num, row
+                row_num += 1
 
             # edge representation for a triple
             row = {}
@@ -396,7 +443,7 @@ Parse a stream of rows to construct a graph partition.
         for row_num, row in track(iter_load, description=f"parse rows"):
             # have we reached a row which begins a new node?
             if row["edge_id"] < 0:
-                node: Node = self.populate_node(row)
+                node: Node = self.populate_node(row, debug=debug)
 
                 if debug:
                     print()
@@ -410,7 +457,7 @@ Parse a stream of rows to construct a graph partition.
 
             # otherwise this row is an edge for the most recent node
             else:
-                edge: Edge = self.populate_edge(row, node)
+                edge: Edge = self.populate_edge(row, node, debug=debug)
 
                 if debug:
                     ic(edge)
@@ -418,12 +465,26 @@ Parse a stream of rows to construct a graph partition.
 
     def iter_gen_rows (
         self,
+        *,
+        sort: bool = False,
+        debug: bool = False,
         ) -> typing.Iterable[GraphRow]:
         """
 Iterator for generating rows on writes.
+
+Optionally, sort on:
+  * src `node.name` in ASC order
+  * `edge_id` and dst `node.name` in ASC order
         """
-        for node in self.nodes.values():
-            yield {
+        if sort:
+            node_iter = sorted(self.node_names.items())
+        else:
+            node_iter = self.node_names.items()  # type: ignore
+
+        for _, node_id in node_iter:
+            node: Node = self.nodes[node_id]
+
+            row = {
                 "src_name": node.name,
                 "edge_id": -1,
                 "rel_name": None,
@@ -432,14 +493,26 @@ Iterator for generating rows on writes.
                 "shadow": node.shadow,
                 "is_rdf": node.is_rdf,
                 "labels": ",".join(node.label_set),
-                "props": self.save_props(node.prop_map),
+                "props": self.save_props(node.prop_map, debug=debug),
             }
+
+            yield row
 
             edge_id: int = 0
 
-            for _, edge_list in node.edge_map.items():
-                for edge in edge_list:
-                    yield {
+            if sort:
+                edge_rel_iter = sorted(node.edge_map.items())
+            else:
+                edge_rel_iter = node.edge_map.items()  # type: ignore
+
+            for _, edge_list in edge_rel_iter:
+                if sort:
+                    edge_iter = sorted(edge_list, key=lambda e: self.nodes[e.node_id].name)
+                else:
+                    edge_iter = edge_list
+
+                for edge in edge_iter:
+                    row = {
                         "src_name": node.name,
                         "edge_id": edge_id,
                         "rel_name": self.edge_rels[edge.rel],
@@ -448,31 +521,48 @@ Iterator for generating rows on writes.
                         "shadow": -1,
                         "is_rdf": node.is_rdf,
                         "labels": None,
-                        "props": self.save_props(edge.prop_map),
+                        "props": self.save_props(edge.prop_map, debug=debug),
                     }
 
+                    yield row
                     edge_id += 1
 
 
     def to_df (
         self,
+        *,
+        sort: bool = False,
+        debug: bool = False,
         ) -> pd.DataFrame:
         """
 Represent the partition as a DataFrame.
         """
-        return pd.DataFrame([row for row in self.iter_gen_rows()])
+        return pd.DataFrame([
+            row
+            for row in self.iter_gen_rows(
+                    sort = sort,
+                    debug = debug,
+            )
+        ])
 
 
     def save_file_parquet (
         self,
         save_parq: cloudpathlib.AnyPath,
         *,
+        sort: bool = False,
         debug: bool = False,
         ) -> None:
         """
 Save a partition to a Parquet file.
         """
-        table = pa.Table.from_pandas(self.to_df())
+        table = pa.Table.from_pandas(
+            self.to_df(
+                sort = sort,
+                debug = debug,
+            ),
+        )
+
         writer = pq.ParquetWriter(save_parq.as_posix(), table.schema)
         writer.write_table(table)
         writer.close()
@@ -482,12 +572,19 @@ Save a partition to a Parquet file.
         self,
         save_csv: cloudpathlib.AnyPath,
         *,
+        sort: bool = False,
         debug: bool = False,
         ) -> None:
         """
 Save a partition to a CSV file.
         """
-        self.to_df().to_csv(save_csv.as_posix(), index=False)
+        self.to_df(
+            sort = sort,
+            debug = debug,
+        ).to_csv(
+            save_csv.as_posix(),
+            index = False,
+        )
 
 
     def save_file_rdf (
@@ -495,6 +592,7 @@ Save a partition to a CSV file.
         save_rdf: cloudpathlib.AnyPath,
         rdf_format: str,
         *,
+        sort: bool = False,
         debug: bool = False,
         ) -> None:
         """
@@ -503,14 +601,19 @@ Save a partition to an RDF file.
         kg = kglab.KnowledgeGraph()
         subj = None
 
-        for row in self.iter_gen_rows():
-            if row["is_rdf"]:
+        row_iter = self.iter_gen_rows(
+            sort = sort,
+            debug = debug,
+        )
 
+        for row in row_iter:
+            if row["is_rdf"]:
                 if row["edge_id"] < 0:
                     subj = rdflib.term.URIRef(row["src_name"])
                 else:
                     pred = rdflib.term.URIRef(row["rel_name"])
                     objt = rdflib.term.URIRef(row["dst_name"])
+                    
                     kg.add(subj, pred, objt)
 
                     if debug:
