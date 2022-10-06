@@ -50,6 +50,24 @@ These values are reserved. So far, there are no known cases where these reserved
 
 Strings are always quoted using doublequotes.
 
+Note that when using `pandas` to read Parquet files in `NOCK` format, to avoid having `NaN` substituted automatically for empty strings, 
+be sure to use the `use_nullable_dtypes = True` setting:
+
+```
+df_parq = pd.read_parquet(
+    "dat/tiny.parq",
+    use_nullable_dtypes = True,
+)
+```
+
+Similarly, when using `pandas` to read CSV files in `NOCK` format, use the `DataFrame.fillna("")` filter:
+
+```
+df_csv = pd.read_csv(
+    "dat/tiny.csv",
+).fillna("")
+```
+
 
 ## Schema
 
