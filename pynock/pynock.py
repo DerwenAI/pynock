@@ -382,53 +382,50 @@ Iterate through the rows in a CSV file.
 Iterate through the rows implied by a RDF file.
         """
         row_num: int = 0
-        prev_subj = None
 
         kg = kglab.KnowledgeGraph()
         kg.load_rdf(rdf_path, format=rdf_format)
 
-        for subj, pred, objt in kg.rdf_graph():
-            if debug:
-                ic(subj, pred, objt)
-
-            if subj != prev_subj:
-                prev_subj = subj
-
-                # node representation for a triple
-                row: GraphRow = {}
-                row["src_name"] = str(subj)
-                row["truth"] = 1.0
-                row["edge_id"] = NOT_FOUND
-                row["rel_name"] = None
-                row["dst_name"] = None
-                row["is_rdf"] = True
-                row["shadow"] = Node.BASED_LOCAL
-                row["labels"] = ""
-                row["props"] = self.PROPS_NULL
-
-                if debug:
-                    ic("node", subj, row_num, row)
-
-                yield row_num, row
-                row_num += 1
-
-            # edge representation for a triple
-            row = {}
+        for subj in kg.rdf_graph().subjects(unique=True):
+            # node representation for a triple
+            row: GraphRow = {}
             row["src_name"] = str(subj)
             row["truth"] = 1.0
-            row["edge_id"] = 1
-            row["rel_name"] = str(pred)
-            row["dst_name"] = str(objt)
+            row["edge_id"] = NOT_FOUND
+            row["rel_name"] = None
+            row["dst_name"] = None
             row["is_rdf"] = True
             row["shadow"] = Node.BASED_LOCAL
             row["labels"] = ""
             row["props"] = self.PROPS_NULL
 
             if debug:
-                ic("edge", objt, row_num, row)
+                ic("node", subj, row_num, row)
 
             yield row_num, row
             row_num += 1
+
+            for _, pred, objt in kg.rdf_graph().triples((subj, None, None)):
+                if debug:
+                    ic(subj, pred, objt)
+
+                # edge representation for a triple
+                row = {}
+                row["src_name"] = str(subj)
+                row["truth"] = 1.0
+                row["edge_id"] = 1
+                row["rel_name"] = str(pred)
+                row["dst_name"] = str(objt)
+                row["is_rdf"] = True
+                row["shadow"] = Node.BASED_LOCAL
+                row["labels"] = ""
+                row["props"] = self.PROPS_NULL
+
+                if debug:
+                    ic("edge", objt, row_num, row)
+
+                yield row_num, row
+                row_num += 1
 
 
     def parse_rows (
