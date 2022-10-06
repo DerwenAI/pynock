@@ -22,7 +22,8 @@ def cli_load_parq (
     save_csv: str = typer.Option(None, "--save-csv", help="output as CSV"),
     save_rdf: str = typer.Option(None, "--save-rdf", help="output as RDF"),
     rdf_format: str = typer.Option("ttl", "--format", help="RDF format: ttl, rdf, jsonld, etc."),
-    dump: bool = typer.Option(False, "--dump", help="dump the data to stdout, then return"),
+    encoding: str = typer.Option("utf-8", "--encoding", help="output encoding"),
+    dump: bool = typer.Option(False, "--dump", help="dump the data, only"),
     sort: bool = typer.Option(False, "--sort", help="sort the output"),
     debug: bool = False,
     ) -> None:
@@ -56,6 +57,7 @@ saving to different formats.
     if save_csv is not None:
         part.save_file_csv(
             cloudpathlib.AnyPath(save_csv),
+            encoding = encoding,
             sort = sort,
             debug = debug,
         )
@@ -122,6 +124,7 @@ def cli_load_rdf (
     rdf_format: str = typer.Option("ttl", "--format", help="RDF format: ttl, rdf, jsonld, etc."),
     save_parq: str = typer.Option(None, "--save-parq", help="output as Parquet"),
     save_csv: str = typer.Option(None, "--save-csv", help="output as CSV"),
+    encoding: str = typer.Option("utf-8", "--encoding", help="output encoding"),
     sort: bool = typer.Option(False, "--sort", help="sort the output"),
     debug: bool = False,
     ) -> None:
@@ -155,6 +158,7 @@ saving to different formats.
     if save_csv is not None:
         part.save_file_csv(
             cloudpathlib.AnyPath(save_csv),
+            encoding = encoding,
             sort = sort,
             debug = debug,
         )

@@ -569,6 +569,7 @@ Save a partition to a Parquet file.
         self,
         save_csv: cloudpathlib.AnyPath,
         *,
+        encoding: str = "utf-8",
         sort: bool = False,
         debug: bool = False,
         ) -> None:
@@ -581,6 +582,9 @@ Save a partition to a CSV file.
         ).to_csv(
             save_csv.as_posix(),
             index = False,
+            header = True,
+            encoding = encoding,
+            quoting = csv.QUOTE_NONNUMERIC,
         )
 
 
