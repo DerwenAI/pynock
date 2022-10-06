@@ -65,7 +65,7 @@ saving to different formats.
     if save_rdf is not None:
         part.save_file_rdf(
             cloudpathlib.AnyPath(save_rdf),
-            rdf_format,
+            rdf_format = rdf_format,
             encoding = encoding,
             sort = sort,
             debug = debug,
@@ -94,6 +94,7 @@ saving to different formats.
     part.parse_rows(
         part.iter_load_csv(
             cloudpathlib.AnyPath(load_csv),
+            encoding = encoding,
             debug = debug,
         ),
         debug = debug,
@@ -113,7 +114,7 @@ saving to different formats.
     if save_rdf is not None:
         part.save_file_rdf(
             cloudpathlib.AnyPath(save_rdf),
-            rdf_format,
+            rdf_format = rdf_format,
             encoding = encoding,
             sort = sort,
             debug = debug,
@@ -142,7 +143,8 @@ saving to different formats.
     part.parse_rows(
         part.iter_load_rdf(
             cloudpathlib.AnyPath(load_rdf),
-            rdf_format,
+            rdf_format = rdf_format,
+            encoding = encoding,
             debug = debug,
         ),
     )

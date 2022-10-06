@@ -15,7 +15,6 @@ from icecream import ic  # type: ignore  # pylint: disable=E0401
 from pydantic import BaseModel  # pylint: disable=E0401,E0611
 from rich.progress import track  # pylint: disable=E0401
 import cloudpathlib
-import kglab
 import pandas as pd
 import pyarrow as pa  # type: ignore  # pylint: disable=E0401
 import pyarrow.lib  # type: ignore  # pylint: disable=E0401
@@ -348,6 +347,7 @@ Iterate through the rows in a Parquet file.
         self,
         csv_path: cloudpathlib.AnyPath,
         *,
+        encoding: str = "utf-8",
         debug: bool = False,
         ) -> typing.Iterable[typing.Tuple[int, GraphRow]]:
         """
@@ -356,7 +356,13 @@ Iterate through the rows in a CSV file.
         row_num: int = 0
 
         with open(csv_path) as fp:
-            reader = csv.reader(fp, delimiter=",", quotechar='"')
+            reader = csv.reader(
+                fp,
+                delimiter = ",",
+                quotechar = '"',
+                encoding = encoding,
+            )
+
             header = next(reader)
 
             for row_val in reader:
@@ -375,17 +381,22 @@ Iterate through the rows in a CSV file.
         rdf_path: cloudpathlib.AnyPath,
         rdf_format: str,
         *,
+        encoding: str = "utf-8",
         debug: bool = False,
         ) -> typing.Iterable[typing.Tuple[int, GraphRow]]:
         """
 Iterate through the rows implied by a RDF file.
         """
         row_num: int = 0
+        graph = rdflib.Graph()
 
-        kg = kglab.KnowledgeGraph()
-        kg.load_rdf(rdf_path, format=rdf_format)
+        graph.parse(
+            rdf_path,
+            format = rdf_format,
+            encoding = encoding,
+        )
 
-        for subj in kg.rdf_graph().subjects(unique=True):
+        for subj in graph.subjects(unique=True):  # type: ignore
             # node representation for a triple
             row: GraphRow = {}
             row["src_name"] = str(subj)
@@ -404,7 +415,7 @@ Iterate through the rows implied by a RDF file.
             yield row_num, row
             row_num += 1
 
-            for _, pred, objt in kg.rdf_graph().triples((subj, None, None)):
+            for _, pred, objt in graph.triples((subj, None, None)):
                 if debug:
                     ic(subj, pred, objt)
 
@@ -590,8 +601,8 @@ Save a partition to a CSV file.
     def save_file_rdf (
         self,
         save_rdf: cloudpathlib.AnyPath,
-        rdf_format: str,
         *,
+        rdf_format: str = "ttl",
         encoding: str = "utf-8",
         sort: bool = False,
         debug: bool = False,
@@ -599,8 +610,8 @@ Save a partition to a CSV file.
         """
 Save a partition to an RDF file.
         """
-        kg = kglab.KnowledgeGraph()
         subj = None
+        graph = rdflib.Graph()
 
         row_iter = self.iter_gen_rows(
             sort = sort,
@@ -615,12 +626,12 @@ Save a partition to an RDF file.
                     pred = rdflib.term.URIRef(row["rel_name"])
                     objt = rdflib.term.URIRef(row["dst_name"])
                     
-                    kg.add(subj, pred, objt)
+                    graph.add((subj, pred, objt))  # type: ignore
 
                     if debug:
                         ic(subj, pred, objt)
 
-        kg.save_rdf(
+        graph.serialize(
             save_rdf,
             format = rdf_format,
             encoding = encoding,

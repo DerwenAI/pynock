@@ -48,7 +48,12 @@ Therefore to help minimize data quality surprises, `NOCK` uses the following mis
 
 These values are reserved. So far, there are no known cases where these reserved values conflict with graph use cases.
 
-Strings are always quoted using doublequotes.
+Missing values for the `truth` column are undefined and will raise an exception.
+
+Note that for CSV files:
+
+  * a header row is expected
+  * strings are always quoted, using double quotes
 
 Note that when using `pandas` to read Parquet files in `NOCK` format, to avoid having `NaN` substituted automatically for empty strings, 
 be sure to use the `use_nullable_dtypes = True` setting:
@@ -57,7 +62,7 @@ be sure to use the `use_nullable_dtypes = True` setting:
 df_parq = pd.read_parquet(
     "dat/tiny.parq",
     use_nullable_dtypes = True,
-)
+).fillna("")
 ```
 
 Similarly, when using `pandas` to read CSV files in `NOCK` format, use the `DataFrame.fillna("")` filter:

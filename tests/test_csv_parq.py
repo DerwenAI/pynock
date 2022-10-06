@@ -37,6 +37,7 @@ def test_parq_csv ():
         part.parse_rows(
             part.iter_load_csv(
                 cloudpathlib.AnyPath(load_csv),
+                encoding = "utf-8",
             ),
         )
 
