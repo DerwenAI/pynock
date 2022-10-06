@@ -38,6 +38,7 @@ def test_parq_csv ():
         # write the partition as a CSV file
         part.save_file_csv(
             cloudpathlib.AnyPath(tmp_obs.name),
+            encoding = "utf-8",
             sort = True,
         )
 

@@ -42,6 +42,7 @@ def test_parq_csv ():
         part.save_file_rdf(
             cloudpathlib.AnyPath(tmp_obs.name),
             rdf_format = "ttl",
+            encoding = "utf-8",
             sort = True,
         )
 

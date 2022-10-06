@@ -592,6 +592,7 @@ Save a partition to a CSV file.
         save_rdf: cloudpathlib.AnyPath,
         rdf_format: str,
         *,
+        encoding: str = "utf-8",
         sort: bool = False,
         debug: bool = False,
         ) -> None:
@@ -619,4 +620,8 @@ Save a partition to an RDF file.
                     if debug:
                         ic(subj, pred, objt)
 
-        kg.save_rdf(save_rdf, format=rdf_format)
+        kg.save_rdf(
+            save_rdf,
+            format = rdf_format,
+            encoding = encoding,
+        )
