@@ -29,6 +29,7 @@ import rdflib
 GraphRow = typing.Dict[str, typing.Any]
 PropMap = typing.Dict[str, typing.Any]
 
+EMPTY_STRING: str = ""
 NOT_FOUND: int = -1
 
 
@@ -57,7 +58,7 @@ Representing a node (entity) in the graph.
     BASED_LOCAL: typing.ClassVar[int] = -1
 
     node_id: int = NOT_FOUND
-    name: str = ""
+    name: str = EMPTY_STRING
     shadow: int = BASED_LOCAL
     is_rdf: bool = False
     label_set: typing.Set[str] = set()
@@ -88,8 +89,6 @@ class Partition (BaseModel):  # pylint: disable=R0903
     """
 Representing a partition in the graph.
     """
-    PROPS_NULL: typing.ClassVar[str] = "null"
-
     part_id: int = NOT_FOUND
     next_node: int = 0
     nodes: typing.Dict[int, Node] = {}
@@ -147,7 +146,7 @@ Load property pairs from a JSON string.
         """
         prop_map: PropMap = {}
 
-        if props not in (cls.PROPS_NULL, ""):
+        if props not in (EMPTY_STRING, "null"):
             prop_map = json.loads(props)
 
         return prop_map
@@ -163,7 +162,7 @@ Load property pairs from a JSON string.
         """
 Save property pairs to a JSON string.
         """
-        props: str = cls.PROPS_NULL
+        props: str = EMPTY_STRING
 
         if len(prop_map) > 0:
             props = json.dumps(prop_map)
@@ -392,12 +391,12 @@ Iterate through the rows implied by a RDF file.
             row["src_name"] = str(subj)
             row["truth"] = 1.0
             row["edge_id"] = NOT_FOUND
-            row["rel_name"] = None
-            row["dst_name"] = None
+            row["rel_name"] = EMPTY_STRING
+            row["dst_name"] = EMPTY_STRING
             row["is_rdf"] = True
             row["shadow"] = Node.BASED_LOCAL
-            row["labels"] = ""
-            row["props"] = self.PROPS_NULL
+            row["labels"] = EMPTY_STRING
+            row["props"] = EMPTY_STRING
 
             if debug:
                 ic("node", subj, row_num, row)
@@ -418,8 +417,8 @@ Iterate through the rows implied by a RDF file.
                 row["dst_name"] = str(objt)
                 row["is_rdf"] = True
                 row["shadow"] = Node.BASED_LOCAL
-                row["labels"] = ""
-                row["props"] = self.PROPS_NULL
+                row["labels"] = EMPTY_STRING
+                row["props"] = EMPTY_STRING
 
                 if debug:
                     ic("edge", objt, row_num, row)
