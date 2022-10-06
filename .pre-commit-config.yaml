@@ -18,6 +18,8 @@ repos:
     hooks:
     -   id: mypy # type annotations
         exclude: ^tests/
+        additional_dependencies:
+          - 'pydantic'
 -   repo: https://github.com/PyCQA/pylint
     rev: pylint-2.7.2
     hooks:

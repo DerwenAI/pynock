@@ -6,13 +6,14 @@ Example graph serialization using low-level Parquet read/write
 efficiently in Python.
 """
 
+import ast
 import csv
 import json
 import sys
 import typing
 
 from icecream import ic  # type: ignore  # pylint: disable=E0401
-from pydantic import BaseModel  # pylint: disable=E0401,E0611
+from pydantic import BaseModel, confloat, conint, NonNegativeInt, ValidationError  # pylint: disable=E0401,E0611
 from rich.progress import track  # pylint: disable=E0401
 import cloudpathlib
 import pandas as pd
@@ -26,10 +27,12 @@ import rdflib
 ## non-class definitions
 
 GraphRow = typing.Dict[str, typing.Any]
+IndexInts = conint(ge=-1)
 PropMap = typing.Dict[str, typing.Any]
+TruthType = confloat(ge=0.0, le=1.0)
 
 EMPTY_STRING: str = ""
-NOT_FOUND: int = -1
+NOT_FOUND: IndexInts = -1  # type: ignore
 
 
 ######################################################################
@@ -39,11 +42,11 @@ class Edge (BaseModel):  # pylint: disable=R0903
     """
 Representing an edge (arc) in the graph.
     """
-    BLANK_RELATION: typing.ClassVar[int] = 0
+    BLANK_RELATION: typing.ClassVar[NonNegativeInt] = 0
 
-    rel: int = BLANK_RELATION
-    node_id: int = NOT_FOUND
-    truth: float = 1.0
+    rel: NonNegativeInt = BLANK_RELATION
+    node_id: IndexInts = NOT_FOUND  # type: ignore
+    truth: TruthType = 1.0  # type: ignore
     prop_map: PropMap = {}
 
 
@@ -56,14 +59,14 @@ Representing a node (entity) in the graph.
     """
     BASED_LOCAL: typing.ClassVar[int] = -1
 
-    node_id: int = NOT_FOUND
+    node_id: IndexInts = NOT_FOUND  # type: ignore
     name: str = EMPTY_STRING
-    shadow: int = BASED_LOCAL
+    shadow: IndexInts = BASED_LOCAL  # type: ignore
     is_rdf: bool = False
     label_set: typing.Set[str] = set()
-    truth: float = 1.0
+    truth: TruthType = 1.0  # type: ignore
     prop_map: PropMap = {}
-    edge_map: typing.Dict[int, list] = {}
+    edge_map: typing.Dict[IndexInts, list] = {}  # type: ignore
 
 
     def add_edge (
@@ -88,10 +91,10 @@ class Partition (BaseModel):  # pylint: disable=R0903
     """
 Representing a partition in the graph.
     """
-    part_id: int = NOT_FOUND
-    next_node: int = 0
-    nodes: typing.Dict[int, Node] = {}
-    node_names: typing.Dict[str, int] = {}
+    part_id: IndexInts = NOT_FOUND  # type: ignore
+    next_node: NonNegativeInt = 0
+    nodes: typing.Dict[NonNegativeInt, Node] = {}
+    node_names: typing.Dict[str, NonNegativeInt] = {}
     edge_rels: typing.List[str] = [""]
 
 
@@ -119,7 +122,7 @@ Lookup a node, return None if not found.
         """
 Create a name for a new node in the namespace, looking up first to avoid duplicates.
         """
-        node_id: int = NOT_FOUND
+        node_id: IndexInts = NOT_FOUND  # type: ignore
 
         if node_name in [None, ""]:
             raise ValueError(f"node name cannot be null |{ node_name }|")
@@ -134,7 +137,7 @@ Create a name for a new node in the namespace, looking up first to avoid duplica
 
 
     @classmethod
-    def load_props (
+    def _load_props (
         cls,
         props: str,
         *,
@@ -152,7 +155,7 @@ Load property pairs from a JSON string.
 
 
     @classmethod
-    def save_props (
+    def _save_props (
         cls,
         prop_map: PropMap,
         *,
@@ -183,6 +186,27 @@ Add a node to the partition.
         self.nodes[node.node_id] = node
 
 
+    @classmethod
+    def _validation_error (
+        cls,
+        row_num: NonNegativeInt,
+        row: GraphRow,
+        message: str,
+        ) -> None:
+        """
+Print an error message to stderr.
+        """
+        print(
+            f"error at input row { row_num }: { message }",
+            file = sys.stderr,
+        )
+
+        print(
+            row,
+            file = sys.stderr,
+        )
+
+
     def populate_node (
         self,
         row: GraphRow,
@@ -206,7 +230,7 @@ Populate a Node object from the given Parquet row data.
                 is_rdf = row["is_rdf"],
                 shadow = row["shadow"],
                 label_set = set(row["labels"].split(",")),
-                prop_map = self.load_props(row["props"], debug=debug),
+                prop_map = self._load_props(row["props"], debug=debug),
             )
 
             self.add_node(src_node, debug=debug)  # type: ignore
@@ -262,7 +286,7 @@ Populate an Edge object from the given Parquet row data.
             rel = self.get_edge_rel(row["rel_name"], create=True, debug=debug),
             truth = row["truth"],
             node_id = dst_node.node_id,
-            prop_map = self.load_props(row["props"], debug=debug),
+            prop_map = self._load_props(row["props"], debug=debug),
         )
 
         node.add_edge(edge, debug=debug)
@@ -317,7 +341,7 @@ Dump the metadata and content for an input Parquet file.
         """
 Iterate through the rows in a Parquet file.
         """
-        row_num: int = 0
+        row_num: NonNegativeInt = 0
 
         for batch in range(parq_file.num_row_groups):
             row_group: pyarrow.lib.Table = parq_file.read_row_group(batch)  # pylint: disable=I1101
@@ -333,7 +357,7 @@ Iterate through the rows in a Parquet file.
                         row[key] = val.as_py()
                     except IndexError as ex:
                         ic(ex, r_idx, c_idx)
-                        return
+                        sys.exit(-1)
 
                 if debug:
                     print()
@@ -353,27 +377,30 @@ Iterate through the rows in a Parquet file.
         """
 Iterate through the rows in a CSV file.
         """
-        row_num: int = 0
+        row_num: NonNegativeInt = 0
 
-        with open(csv_path) as fp:
+        with open(csv_path, encoding=encoding) as fp:
             reader = csv.reader(
                 fp,
                 delimiter = ",",
                 quotechar = '"',
-                encoding = encoding,
             )
 
             header = next(reader)
 
-            for row_val in reader:
-                row: GraphRow = dict(zip(header, row_val))
-                row["edge_id"] = int(row["edge_id"])
-                row["is_rdf"] = bool(row["is_rdf"])
-                row["shadow"] = int(row["shadow"])
-                row["truth"] = float(row["truth"])
+            try:
+                for row_val in reader:
+                    row: GraphRow = dict(zip(header, row_val))
+                    row["edge_id"] = int(row["edge_id"])
+                    row["is_rdf"] = bool(ast.literal_eval(row["is_rdf"]))
+                    row["shadow"] = int(row["shadow"])
+                    row["truth"] = float(row["truth"])
 
-                yield row_num, row
-                row_num += 1
+                    yield row_num, row
+                    row_num += 1
+            except ValueError as ex:
+                self._validation_error(row_num, row, str(ex))
+                sys.exit(-1)
 
 
     def iter_load_rdf (
@@ -387,7 +414,7 @@ Iterate through the rows in a CSV file.
         """
 Iterate through the rows implied by a RDF file.
         """
-        row_num: int = 0
+        row_num: NonNegativeInt = 0
         graph = rdflib.Graph()
 
         graph.parse(
@@ -450,11 +477,15 @@ Parse a stream of rows to construct a graph partition.
         for row_num, row in track(iter_load, description=f"parse rows"):
             # have we reached a row which begins a new node?
             if row["edge_id"] < 0:
-                node: Node = self.populate_node(row, debug=debug)
+                try:
+                    node: Node = self.populate_node(row, debug=debug)
 
-                if debug:
-                    print()
-                    ic(node)
+                    if debug:
+                        print()
+                        ic(node)
+                except ValidationError as ex:
+                    self._validation_error(row_num, row, str(ex))
+                    sys.exit(-1)
 
             # validate the node/edge sequencing and consistency among the rows
             elif row["src_name"] != node.name:
@@ -464,10 +495,14 @@ Parse a stream of rows to construct a graph partition.
 
             # otherwise this row is an edge for the most recent node
             else:
-                edge: Edge = self.populate_edge(row, node, debug=debug)
+                try:
+                    edge: Edge = self.populate_edge(row, node, debug=debug)
 
-                if debug:
-                    ic(edge)
+                    if debug:
+                        ic(edge)
+                except ValidationError as ex:
+                    self._validation_error(row_num, row, str(ex))
+                    sys.exit(-1)
 
 
     def iter_gen_rows (
@@ -500,12 +535,12 @@ Optionally, sort on:
                 "shadow": node.shadow,
                 "is_rdf": node.is_rdf,
                 "labels": ",".join(node.label_set),
-                "props": self.save_props(node.prop_map, debug=debug),
+                "props": self._save_props(node.prop_map, debug=debug),
             }
 
             yield row
 
-            edge_id: int = 0
+            edge_id: NonNegativeInt = 0
 
             if sort:
                 edge_rel_iter = sorted(node.edge_map.items())
@@ -528,7 +563,7 @@ Optionally, sort on:
                         "shadow": -1,
                         "is_rdf": node.is_rdf,
                         "labels": None,
-                        "props": self.save_props(edge.prop_map, debug=debug),
+                        "props": self._save_props(edge.prop_map, debug=debug),
                     }
 
                     yield row
