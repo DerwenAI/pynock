@@ -144,7 +144,7 @@ release process:
 
 ```
 python3 -m pip install -e .
-python3 -m pytest tests/
+python3 -m pytest -rx tests/
 python3 -m pip uninstall pynock
 ```
 
