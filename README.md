@@ -1,5 +1,14 @@
 # pynock
 
+![Licence](https://img.shields.io/github/license/DerwenAI/pynock)
+![Repo size](https://img.shields.io/github/repo-size/DerwenAI/pynock)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/w/DerwenAI/pynock?style=plastic)
+[![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/DerwenAI/pynock.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/DerwenAI/pynock/context:python)
+![CI](https://github.com/DerwenAI/pynock/workflows/CI/badge.svg)
+![downloads](https://img.shields.io/pypi/dm/pynock)
+![sponsor](https://img.shields.io/github/sponsors/ceteri)
+
 The following describes a proposed standard `NOCK` for a Parquet
 format that supports efficient distributed serialization of multiple
 kinds of graph technologies.
@@ -165,3 +174,8 @@ Then run our PyPi push script:
 ```
 ./bin/push_pypi.sh
 ```
+
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=derwenai/pynock&type=Date)](https://star-history.com/#derwenai/pynock&Date)
