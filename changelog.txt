@@ -1,5 +1,12 @@
 # `pynock` changelog
 
+## 1.1.2
+
+2022-10-??
+
+  * create an example of partitioning based on `NetworkX` "Karate Club"
+
+
 ## 1.1.1
 
 2022-10-06

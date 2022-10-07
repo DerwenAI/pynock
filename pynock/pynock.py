@@ -300,13 +300,24 @@ Populate an Edge object from the given Parquet row data.
         """
 Dump the internal data structures for this partition.
         """
-        for _, node_id in self.node_names.items():
-            node: Node = self.nodes[node_id]
-            ic(node)
+        for _, src_node_id in self.node_names.items():
+            src_node: Node = self.nodes[src_node_id]
+            self.dump_node(src_node)
 
-            for edge_rel, edge_list in node.edge_map.items():
-                for edge in edge_list:
-                    ic(edge_rel, edge)
+
+    def dump_node (
+        self,
+        node: Node,
+        ) -> None:
+        """
+Dump the internal data structures for this node.
+        """
+        ic(node)
+
+        for edge_rel, edge_list in node.edge_map.items():
+            for edge in edge_list:
+                dst_node: Node = self.nodes[edge.node_id]
+                ic(edge_rel, edge, dst_node.name)
 
 
     @classmethod

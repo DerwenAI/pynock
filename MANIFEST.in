@@ -5,3 +5,4 @@ include *.txt
 recursive-include dat *.csv
 recursive-include dat *.parq
 recursive-include tests *.py
+recursive-include examples *.ipynb
