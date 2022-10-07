@@ -91,9 +91,9 @@ python3 cli.py --help
 
 ## Usage programmatically in Python
 
-To construct a partition file programmatically, see the sample code
-[`tiny.py`](https://github.com/DerwenAI/pynock/blob/main/tiny.py)
-which builds the minimal recipe example as an RDF graph.
+To construct a partition file programmatically, see the 
+[`examples`](https://github.com/DerwenAI/pynock/blob/main/examples)
+for Jupyter notebooks with sample code and debugging.
 
 
 ## Background

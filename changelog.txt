@@ -1,27 +1,29 @@
 # `pynock` changelog
 
-## 1.1.2
+## 1.2.0
 
-2022-10-??
+2022-10-07
 
+  * migrate sample code to `examples/` Jupyter notebooks
   * create an example of partitioning based on `NetworkX` "Karate Club"
+  * add convenience methods `Partition.find_or_create_node()` and `Partition.create_edge()`
 
 
 ## 1.1.1
 
 2022-10-06
 
-  * added input validation and warnings
-  * resolved conflicts with `pandas` for missing values
+  * add input validation and warnings
+  * resolve conflicts with `pandas` for missing values
   * consistent parsing and generation of RDF
-  * created CI pipeline using docker and GH Actions
+  * create CI pipeline using docker and GH Actions
 
 
 ## 1.0.1
 
 2022-10-03
 
-  * proposed open standard
+  * propose open standard
 
 
 ## 1.0.0
