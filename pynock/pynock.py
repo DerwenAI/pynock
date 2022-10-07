@@ -91,6 +91,11 @@ class Partition (BaseModel):  # pylint: disable=R0903
     """
 Representing a partition in the graph.
     """
+    SORT_COLUMNS: typing.ClassVar[typing.List[str]] = [
+        "src_name",
+        "edge_id",
+    ]
+
     part_id: IndexInts = NOT_FOUND  # type: ignore
     next_node: NonNegativeInt = 0
     nodes: typing.Dict[NonNegativeInt, Node] = {}
@@ -113,14 +118,14 @@ Lookup a node, return None if not found.
         return None
 
 
-    def create_node_name (
+    def _create_node_name (
         self,
         node_name: str,
         *,
         debug: bool = False,  # pylint: disable=W0613
         ) -> int:
         """
-Create a name for a new node in the namespace, looking up first to avoid duplicates.
+Private method to create a name for a new node in the namespace, looking up first to avoid duplicates.
         """
         node_id: IndexInts = NOT_FOUND  # type: ignore
 
@@ -134,6 +139,45 @@ Create a name for a new node in the namespace, looking up first to avoid duplica
             self.next_node += 1
 
         return node_id
+
+
+    def find_or_create_node (
+        self,
+        node_name: str,
+        *,
+        debug: bool = False,
+        ) -> Node:
+        """
+A utility method to:
+
+  * lookup a node by name and return if it already exists
+  * otherwise, create and return a new node
+
+Node attributes other than `node_id` and `name` can be set afterwards,
+as needed.
+        """
+        node: typing.Optional[Node] = self.lookup_node(
+            node_name,
+            debug = debug,
+        )
+
+        if node is None:
+            node_id: IndexInts = self._create_node_name(  # type: ignore
+                node_name,
+                debug = debug,
+            )
+
+            node = Node(
+                node_id = node_id,
+                name = node_name,
+            )
+
+            self.add_node(
+                node,
+                debug = debug,
+            )
+
+        return node
 
 
     @classmethod
@@ -207,33 +251,28 @@ Print an error message to stderr.
         )
 
 
-    def populate_node (
+    def _populate_node (
         self,
         row: GraphRow,
         *,
         debug: bool = False,  # pylint: disable=W0613
         ) -> Node:
         """
-Populate a Node object from the given Parquet row data.
+Private method to populate a Node object from the given Parquet row data.
         """
-        # first, lookup to make sure we don't overwrite if there are
-        # duplicates for the src node
-        src_name: str = row["src_name"]
-        src_node: typing.Optional[Node] = self.lookup_node(src_name, debug=debug)
+        # lookup to make sure that we don't overwrite if the src node
+        # had any duplicate entries
+        src_node: Node = self.find_or_create_node(
+            row["src_name"],
+            debug = debug,
+        )
 
-        if src_node is None:
-            # create a src node
-            src_node = Node(
-                node_id = self.create_node_name(src_name, debug=debug),
-                name = row["src_name"],
-                truth = row["truth"],
-                is_rdf = row["is_rdf"],
-                shadow = row["shadow"],
-                label_set = set(row["labels"].split(",")),
-                prop_map = self._load_props(row["props"], debug=debug),
-            )
-
-            self.add_node(src_node, debug=debug)  # type: ignore
+        # in this case, we know these annotations must be added
+        src_node.truth = row["truth"]
+        src_node.is_rdf = row["is_rdf"]
+        src_node.shadow = row["shadow"]
+        src_node.label_set = set(row["labels"].split(","))
+        src_node.prop_map = self._load_props(row["props"], debug=debug)
 
         return src_node  # type: ignore
 
@@ -257,39 +296,58 @@ Lookup the integer index for the named edge relation.
         return self.edge_rels.index(rel_name)
 
 
-    def populate_edge (
+    def create_edge (
+        self,
+        src_node: Node,
+        rel_name: str,
+        dst_node: Node,
+        *,
+        debug: bool = False,
+        ) -> Edge:
+        """
+Create an edge, which is effectively a triple
+        """
+        edge: Edge = Edge(
+            rel = self.get_edge_rel(rel_name, create=True, debug=debug),
+            node_id = dst_node.node_id,
+        )
+
+        src_node.add_edge(edge, debug=debug)
+
+        return edge
+
+
+    def _populate_edge (
         self,
         row: GraphRow,
-        node: Node,
+        src_node: Node,
         *,
         debug: bool = False,  # pylint: disable=W0613
         ) -> Edge:
         """
-Populate an Edge object from the given Parquet row data.
+Private method to populate an Edge object from the given Parquet row data.
         """
         # first, lookup the dst node and create if needed
-        dst_name: str = row["dst_name"]
-        dst_node: typing.Optional[Node] = self.lookup_node(dst_name, debug=debug)
-
-        if dst_node is None:
-            dst_node = Node(
-                node_id = self.create_node_name(dst_name, debug=debug),
-                name = dst_name,
-                truth = row["truth"],
-                is_rdf = row["is_rdf"],
-            )
-
-            self.add_node(dst_node, debug=debug)
-
-        # create the edge
-        edge: Edge = Edge(
-            rel = self.get_edge_rel(row["rel_name"], create=True, debug=debug),
-            truth = row["truth"],
-            node_id = dst_node.node_id,
-            prop_map = self._load_props(row["props"], debug=debug),
+        dst_node: Node = self.find_or_create_node(
+            row["dst_name"],
+            debug = debug,
         )
 
-        node.add_edge(edge, debug=debug)
+        # add annotations
+        dst_node.truth = row["truth"]
+        dst_node.is_rdf = row["is_rdf"]
+
+        # create the edge
+        edge: Edge = self.create_edge(
+            src_node,
+            row["rel_name"],
+            dst_node,
+            debug = debug,
+        )
+
+        # add annotations
+        edge.truth = row["truth"]
+        edge.prop_map = self._load_props(row["props"], debug=debug)
 
         return edge
 
@@ -300,13 +358,24 @@ Populate an Edge object from the given Parquet row data.
         """
 Dump the internal data structures for this partition.
         """
-        for _, node_id in self.node_names.items():
-            node: Node = self.nodes[node_id]
-            ic(node)
+        for _, src_node_id in self.node_names.items():
+            src_node: Node = self.nodes[src_node_id]
+            self.dump_node(src_node)
 
-            for edge_rel, edge_list in node.edge_map.items():
-                for edge in edge_list:
-                    ic(edge_rel, edge)
+
+    def dump_node (
+        self,
+        node: Node,
+        ) -> None:
+        """
+Dump the internal data structures for this node.
+        """
+        ic(node)
+
+        for edge_rel, edge_list in node.edge_map.items():
+            for edge in edge_list:
+                dst_node: Node = self.nodes[edge.node_id]
+                ic(edge_rel, edge, dst_node.name)
 
 
     @classmethod
@@ -478,25 +547,25 @@ Parse a stream of rows to construct a graph partition.
             # have we reached a row which begins a new node?
             if row["edge_id"] < 0:
                 try:
-                    node: Node = self.populate_node(row, debug=debug)
+                    src_node: Node = self._populate_node(row, debug=debug)
 
                     if debug:
                         print()
-                        ic(node)
+                        ic(src_node)
                 except ValidationError as ex:
                     self._validation_error(row_num, row, str(ex))
                     sys.exit(-1)
 
             # validate the node/edge sequencing and consistency among the rows
-            elif row["src_name"] != node.name:
+            elif row["src_name"] != src_node.name:
                 error_node = row["src_name"]
-                message = f"|{ error_node }| out of sequence at row {row_num}"
+                message = f"|{ error_node }| out of sequence at row { row_num }"
                 raise ValueError(message)
 
             # otherwise this row is an edge for the most recent node
             else:
                 try:
-                    edge: Edge = self.populate_edge(row, node, debug=debug)
+                    edge: Edge = self._populate_edge(row, src_node, debug=debug)
 
                     if debug:
                         ic(edge)
@@ -579,13 +648,15 @@ Optionally, sort on:
         """
 Represent the partition as a DataFrame.
         """
-        return pd.DataFrame([
+        df: pd.DataFrame = pd.DataFrame([
             row
-            for row in self.iter_gen_rows(
-                    sort = sort,
-                    debug = debug,
-            )
+            for row in self.iter_gen_rows(debug=debug)
         ])
+     
+        if sort:
+            df = df.sort_values(self.SORT_COLUMNS)
+
+        return df
 
 
     def save_file_parquet (

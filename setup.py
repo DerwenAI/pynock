@@ -8,6 +8,8 @@ import typing
 import setuptools  # type: ignore
 
 
+VERSION = "1.2.0"
+
 DESCRIP = """
 A proposed standard `NOCK` for a Parquet format that supports efficient
 distributed serialization of multiple kinds of graph technologies.
@@ -20,10 +22,13 @@ KEYWORDS = [
     "dataframe",
     "graph data science",
     "knowledge graph",
+    "labeled property graphs",
+    "open standard",
     "openCypher",
+    "probabilistic graphs",
+    "semantic graphs",
     "serialization",
     "spreadsheet",
-    "open standard",
 ]
 
 
@@ -48,7 +53,7 @@ def parse_requirements_file (filename: str) -> typing.List[ str ]:
 if __name__ == "__main__":
     setuptools.setup(
         name = "pynock",
-        version = "1.1.1",
+        version = VERSION,
         license = "MIT",
 
         python_requires = ">=3.8",
