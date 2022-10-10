@@ -31,6 +31,10 @@ When a node from another partition is referenced as a _destination node_, then a
 When a shadow node gets unmarshalled, that triggers an `asyncio` _future_ (called an _object reference_ in Ray) to perform a distributed lookup of the node by name across the cluster. Then its partition info replaces the `"edge_id"` value.
 
 
+## Conventions: Nodes and Edges
+Records of type `Node` have always `"edge_id"` field set to `NOT_FOUND` value.
+Records of type `Edge` have always `"edge_id"` field set to an integer value greater or equal to`0` (type `pydantic.NonNegativeInt`).
+
 ## Conventions: Missing Values, etc.
 
 Data frameworks such as Excel and `pandas` have conflicting rules and default settings for how to handle missing values when marshalling and unmarshalling data. Language differences (Python, C++, SQL) as well as their popular libraries for handling CSV, JSON, dataframes, and so on, impose their own rules in addition. Consequently we encounter a range of possible ways to represent missing values:
