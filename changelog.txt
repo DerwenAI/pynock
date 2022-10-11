@@ -1,5 +1,13 @@
 # `pynock` changelog
 
+## 1.2.1
+
+2022-10-11
+
+  * update dependencies, kudos @Mec-iS
+  * improve docs about `edge_id` requirements, kudos @Mec-iS
+
+
 ## 1.2.0
 
 2022-10-07

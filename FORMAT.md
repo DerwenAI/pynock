@@ -23,7 +23,6 @@ Graph data has two possible states:
   * _marshalled_: serialized and persisted in storage, i.e., "at rest"
   * _unmarshalled_: dynamic data structures in memory, i.e., "live"
 
-
 A node may be referenced either as a _source node_, which has directed edges, or as a _destination node_ which is the target of an edge.
 
 When a node from another partition is referenced as a _destination node_, then at least its "shadow" information (i.e., its unique symbol) gets included within the referencing partition. This is called a _shadow node_.
@@ -32,8 +31,11 @@ When a shadow node gets unmarshalled, that triggers an `asyncio` _future_ (calle
 
 
 ## Conventions: Nodes and Edges
+
 Records of type `Node` have always `"edge_id"` field set to `NOT_FOUND` value.
-Records of type `Edge` have always `"edge_id"` field set to an integer value greater or equal to`0` (type `pydantic.NonNegativeInt`).
+
+Records of type `Edge` have always `"edge_id"` field set to an integer value greater or equal to `0` (type `pydantic.NonNegativeInt`).
+
 
 ## Conventions: Missing Values, etc.
 

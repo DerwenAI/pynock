@@ -8,7 +8,7 @@ import typing
 import setuptools  # type: ignore
 
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 DESCRIP = """
 A proposed standard `NOCK` for a Parquet format that supports efficient
