@@ -211,9 +211,7 @@ Save property pairs to a JSON string.
         props: str = EMPTY_STRING
 
         if len(prop_map) > 0:
-            props = json.dumps(prop_map)
-            props = props.replace("\": ", "\":")
-            props = props.replace(", \"", ",\"")
+            props = json.dumps(prop_map,separators=(',',':'))
 
         return props
 
